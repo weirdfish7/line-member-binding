@@ -62,7 +62,6 @@
         }
 
         profile = await liff.getProfile();
-        document.getElementById("line-uid").textContent = profile.userId;
         document.getElementById("line-name").textContent = profile.displayName;
 
         const response = await fetch("https://hook.us1.make.com/9eyj2txrgwrx48xuui6nqmu7wb35lo7o", {

@@ -19,7 +19,7 @@
   </div>
 
   <!-- 標題區 -->
-  <h1 class="text-4xl font-bold text-green-800 mb-2">愛護安 會員綁定</h1>
+  <h1 class="text-4xl font-bold text-green-800 mb-2">LINE 會員綁定</h1>
   <p class="text-brown-700 mb-6 text-base">請完成會員綁定，以使用完整功能</p>
 
   <!-- 綁定狀態卡片 -->
@@ -54,9 +54,17 @@
       return params;
     }
 
+    function checkMember(uid) {
+      return fetch("https://hook.us1.make.com/9eyj2txrgwrx48xuui6nqmu7wb35lo7o", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ line_uid: uid })
+      }).then(res => res.json());
+    }
+
     function bindMember() {
       const uid = document.getElementById("line-uid").textContent || "unknown";
-      fetch("https://your-make-webhook-url", {
+      fetch("https://hook.us1.make.com/i8cmkbyr9wscq55dtf1akwtiu3vo23sy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ line_uid: uid })
@@ -74,15 +82,27 @@
       window.close();
     }
 
-    window.onload = function () {
+    window.onload = async function () {
       const params = getQueryParams();
-      const isBound = params.status === 'bound';
+      const uid = params.uid || "";
+      const name = params.name || "(未提供)";
 
-      if (isBound) {
-        document.getElementById("bound").classList.remove("hidden");
-        document.getElementById("line-name").textContent = params.name || "(未提供)";
-        document.getElementById("line-uid").textContent = params.uid || "(未提供)";
-      } else {
+      if (!uid) {
+        document.getElementById("not-bound").classList.remove("hidden");
+        return;
+      }
+
+      try {
+        const result = await checkMember(uid);
+        if (result.status === "bound") {
+          document.getElementById("bound").classList.remove("hidden");
+          document.getElementById("line-name").textContent = name;
+          document.getElementById("line-uid").textContent = uid;
+        } else {
+          document.getElementById("not-bound").classList.remove("hidden");
+          document.getElementById("line-uid").textContent = uid;
+        }
+      } catch (e) {
         document.getElementById("not-bound").classList.remove("hidden");
       }
     };

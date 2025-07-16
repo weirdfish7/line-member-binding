@@ -26,13 +26,14 @@
   <!-- 載入中狀態 -->
   <div id="loading" class="text-gray-500 text-sm mb-6">載入中，請稍候...</div>
 
-  <!-- 綁定狀態卡片 -->
-  <div id="card-container" class="w-full max-w-md hidden bg-white border-2 border-amber-200 rounded-3xl shadow-lg p-8 text-center space-y-6">
+  <!-- 綁定狀態卡片 (載入完成後才顯示) -->
+  <div id="card" class="w-full max-w-md bg-white border-2 border-amber-200 rounded-3xl shadow-lg p-8 text-center space-y-6 hidden">
 
     <!-- 尚未綁定 -->
     <div id="not-bound" class="hidden">
       <p class="text-lg text-gray-800 font-semibold">👋 你尚未綁定會員</p>
-      <button onclick="bindMember()" class="mt-6 bg-green-500 text-white py-2 px-6 rounded-full font-bold shadow hover:bg-green-600 transition">我要綁定會員</button>
+      <input id="phone" type="tel" placeholder="請輸入電話號碼" class="mt-4 w-full px-4 py-2 border rounded-full text-center text-gray-700 border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-300" />
+      <button id="bindBtn" onclick="bindMember()" class="mt-4 bg-green-500 text-white py-2 px-6 rounded-full font-bold shadow hover:bg-green-600 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>我要綁定會員</button>
     </div>
 
     <!-- 已綁定 -->
@@ -71,7 +72,7 @@
       .then(res => res.json())
       .then(result => {
         document.getElementById("loading").style.display = "none";
-        document.getElementById("card-container").classList.remove("hidden");
+        document.getElementById("card").classList.remove("hidden");
 
         if (result.status === "bound") {
           document.getElementById("bound").classList.remove("hidden");
@@ -87,11 +88,13 @@
 
     async function bindMember() {
       const idToken = liff.getDecodedIDToken();
+      const phone = document.getElementById("phone").value.trim();
 
       const payload = {
         line_uid: profile.userId,
         displayName: profile.displayName,
-        email: idToken?.email || ''
+        email: idToken?.email || '',
+        phone: phone
       };
 
       await fetch("https://hook.us1.make.com/i8cmkbyr9wscq55dtf1akwtiu3vo23sy", {
@@ -100,13 +103,23 @@
         body: JSON.stringify(payload)
       });
 
-      alert("綁定成功！");
-      liff.closeWindow();
+      document.getElementById("not-bound").classList.add("hidden");
+      document.getElementById("bound").classList.remove("hidden");
     }
 
     function closeWindow() {
       liff.closeWindow();
     }
+
+    // 啟用輸入電話後才可點綁定
+    document.addEventListener("DOMContentLoaded", () => {
+      const phoneInput = document.getElementById("phone");
+      const bindBtn = document.getElementById("bindBtn");
+
+      phoneInput?.addEventListener("input", () => {
+        bindBtn.disabled = phoneInput.value.trim().length === 0;
+      });
+    });
 
     init();
   </script>

@@ -2,86 +2,90 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>LINE 會員綁定</title>
-  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { font-family: sans-serif; text-align: center; margin: 2em; }
-    button { padding: 10px 20px; font-size: 16px; }
-    #status { font-style: italic; }
+    body {
+      font-family: 'Segoe UI', 'Noto Sans TC', sans-serif;
+    }
   </style>
 </head>
-<body>
-  <h2>LINE 會員綁定</h2>
-  <div id="status">載入中，請稍候...</div>
+<body class="bg-gradient-to-tr from-green-50 via-orange-50 to-amber-100 min-h-screen flex flex-col items-center justify-center px-6 py-10">
 
-  <div id="bindingArea" style="display: none;">
-    <p>👋 你尚未綁定會員</p>
-    <button onclick="bindNow()">我要綁定會員</button>
+  <!-- LOGO -->
+  <div class="mb-4">
+    <img src="/愛護安小logo.png" alt="品牌 LOGO" class="w-28 h-28 mx-auto drop-shadow-lg" />
   </div>
 
-  <div id="alreadyArea" style="display: none;">
-    <p>✅ 你已經綁定會員囉！</p>
-    <p><strong>LINE 名稱：</strong><span id="userName"></span></p>
-    <p><strong>LINE UID：</strong><span id="userId"></span></p>
-    <button onclick="liff.closeWindow()">關閉視窗</button>
+  <!-- 標題區 -->
+  <h1 class="text-4xl font-bold text-green-800 mb-2">LINE 會員綁定</h1>
+  <p class="text-brown-700 mb-6 text-base">請完成會員綁定，以使用完整功能</p>
+
+  <!-- 綁定狀態卡片 -->
+  <div class="w-full max-w-md bg-white border-2 border-amber-200 rounded-3xl shadow-lg p-8 text-center space-y-6">
+
+    <!-- 尚未綁定 -->
+    <div id="not-bound" class="hidden">
+      <p class="text-lg text-gray-800 font-semibold">👋 你尚未綁定會員</p>
+      <button onclick="bindMember()" class="mt-6 bg-green-500 text-white py-2 px-6 rounded-full font-bold shadow hover:bg-green-600 transition">我要綁定會員</button>
+    </div>
+
+    <!-- 已綁定 -->
+    <div id="bound" class="hidden">
+      <p class="text-green-600 font-semibold text-lg">✅ 你已經綁定會員囉！</p>
+      <p class="text-gray-800 text-base">LINE 名稱：<span id="line-name" class="font-semibold text-orange-600"></span></p>
+      <p class="text-gray-500 text-sm break-all">LINE UID：<span id="line-uid"></span></p>
+      <button onclick="closeWindow()" class="mt-6 bg-brown-100 text-brown-800 py-1.5 px-6 rounded-full text-sm shadow hover:bg-brown-200">關閉視窗</button>
+    </div>
+
   </div>
+
+  <!-- 頁尾 -->
+  <p class="text-sm text-brown-400 mt-10">© 2025 愛護安. All rights reserved.</p>
 
   <script>
-    let profile;
+    function getQueryParams() {
+      const params = {};
+      location.search.slice(1).split('&').forEach(pair => {
+        const [key, value] = pair.split('=');
+        if (key) params[decodeURIComponent(key)] = decodeURIComponent(value || '');
+      });
+      return params;
+    }
 
-    async function init() {
-      await liff.init({ liffId: "2007763002-GaqlwXwO" });
+    function bindMember() {
+      const uid = document.getElementById("line-uid").textContent || "unknown";
+      fetch("https://your-make-webhook-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ line_uid: uid })
+      })
+      .then(() => {
+        alert("✅ 綁定成功！");
+        window.close();
+      })
+      .catch(() => {
+        alert("❌ 綁定失敗，請稍後再試！");
+      });
+    }
 
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return;
+    function closeWindow() {
+      window.close();
+    }
+
+    window.onload = function () {
+      const params = getQueryParams();
+      const isBound = params.status === 'bound';
+
+      if (isBound) {
+        document.getElementById("bound").classList.remove("hidden");
+        document.getElementById("line-name").textContent = params.name || "(未提供)";
+        document.getElementById("line-uid").textContent = params.uid || "(未提供)";
+      } else {
+        document.getElementById("not-bound").classList.remove("hidden");
       }
-
-      profile = await liff.getProfile();
-
-      fetch("https://hook.us1.make.com/9eyj2txrgwrx48xuui6nqmu7wb35lo7o", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ line_uid: profile.userId })
-      })
-      .then(res => res.json())
-      .then(result => {
-        document.getElementById("status").style.display = "none";
-
-        if (result.status === "bound") {
-          document.getElementById("alreadyArea").style.display = "block";
-          document.getElementById("userName").textContent = profile.displayName;
-          document.getElementById("userId").textContent = profile.userId;
-        } else {
-          document.getElementById("bindingArea").style.display = "block";
-        }
-      })
-      .catch(err => {
-        document.getElementById("status").textContent = "查詢失敗，請稍後重試";
-        console.error("查詢綁定狀態錯誤", err);
-      });
-    }
-
-    async function bindNow() {
-      const idToken = liff.getDecodedIDToken();
-
-      const payload = {
-        line_uid: profile.userId,
-        displayName: profile.displayName,
-        email: idToken?.email || ''
-      };
-
-      await fetch("https://hook.us1.make.com/i8cmkbyr9wscq55dtf1akwtiu3vo23sy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      alert("綁定成功！");
-      liff.closeWindow();
-    }
-
-    init();
+    };
   </script>
 </body>
 </html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>會員綁定頁</title>
+  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.js"></script>
+</head>
+<body>
+  <h2>歡迎進行會員綁定</h2>
+  <button onclick="startBinding()">綁定會員</button>
+
+  <script>
+    async function startBinding() {
+      await liff.init({ liffId: "2007763002-GaqlwXwO" });  // ← 替換成你的 LIFF ID
+
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+
+      const profile = await liff.getProfile();
+      const idToken = liff.getDecodedIDToken();
+
+      const data = {
+        line_uid: profile.userId,
+        displayName: profile.displayName,
+        email: idToken.email || ''
+      };
+
+      // 傳送 Webhook
+      fetch("https://hook.us1.make.com/9eyj2txrgwrx48xuui6nqmu7wb35lo7o", {  // ← 你的Webhook
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      }).then(() => {
+        alert("會員綁定成功！");
+        liff.closeWindow();
+      });
+    }
+  </script>
+</body>
+</html>

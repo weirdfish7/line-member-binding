@@ -92,15 +92,14 @@
         return;
       }
 
+      document.getElementById("line-uid").textContent = uid;
       try {
         const result = await checkMember(uid);
         if (result.status === "bound") {
           document.getElementById("bound").classList.remove("hidden");
           document.getElementById("line-name").textContent = name;
-          document.getElementById("line-uid").textContent = uid;
         } else {
           document.getElementById("not-bound").classList.remove("hidden");
-          document.getElementById("line-uid").textContent = uid;
         }
       } catch (e) {
         document.getElementById("not-bound").classList.remove("hidden");

@@ -27,7 +27,7 @@
   <div id="loading" class="text-gray-500 text-sm mb-6">載入中，請稍候...</div>
 
   <!-- 綁定狀態卡片 -->
-  <div class="w-full max-w-md bg-white border-2 border-amber-200 rounded-3xl shadow-lg p-8 text-center space-y-6">
+  <div id="card-container" class="w-full max-w-md hidden bg-white border-2 border-amber-200 rounded-3xl shadow-lg p-8 text-center space-y-6">
 
     <!-- 尚未綁定 -->
     <div id="not-bound" class="hidden">
@@ -71,6 +71,7 @@
       .then(res => res.json())
       .then(result => {
         document.getElementById("loading").style.display = "none";
+        document.getElementById("card-container").classList.remove("hidden");
 
         if (result.status === "bound") {
           document.getElementById("bound").classList.remove("hidden");

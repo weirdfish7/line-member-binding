@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>LINE 會員綁定</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', 'Noto Sans TC', sans-serif;
@@ -15,12 +16,15 @@
 
   <!-- LOGO -->
   <div class="mb-4">
-    <img src="/愛護安小logo.png" alt="品牌 LOGO" class="w-28 aspect-square object-contain mx-auto drop-shadow-lg" />
+    <img src="/愛護安小logo.png" alt="品牌 LOGO" class="w-28 h-28 object-contain mx-auto drop-shadow-lg" />
   </div>
 
   <!-- 標題區 -->
   <h1 class="text-4xl font-bold text-green-800 mb-2">LINE 會員綁定</h1>
   <p class="text-brown-700 mb-6 text-base">請完成會員綁定，以使用完整功能</p>
+
+  <!-- 載入中狀態 -->
+  <div id="loading" class="text-gray-500 text-sm mb-6">載入中，請稍候...</div>
 
   <!-- 綁定狀態卡片 -->
   <div class="w-full max-w-md bg-white border-2 border-amber-200 rounded-3xl shadow-lg p-8 text-center space-y-6">
@@ -45,66 +49,65 @@
   <p class="text-sm text-brown-400 mt-10">© 2025 愛護安. All rights reserved.</p>
 
   <script>
-    function getQueryParams() {
-      const params = {};
-      location.search.slice(1).split('&').forEach(pair => {
-        const [key, value] = pair.split('=');
-        if (key) params[decodeURIComponent(key)] = decodeURIComponent(value || '');
-      });
-      return params;
-    }
+    let profile;
 
-    function checkMember(uid) {
-      return fetch("https://hook.us1.make.com/9eyj2txrgwrx48xuui6nqmu7wb35lo7o", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ line_uid: uid })
-      }).then(res => res.json());
-    }
+    async function init() {
+      await liff.init({ liffId: "2007763002-GaqlwXwO" });
 
-    function bindMember() {
-      const uid = document.getElementById("line-uid").textContent || "unknown";
-      fetch("https://hook.us1.make.com/i8cmkbyr9wscq55dtf1akwtiu3vo23sy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ line_uid: uid })
-      })
-      .then(() => {
-        alert("✅ 綁定成功！");
-        window.close();
-      })
-      .catch(() => {
-        alert("❌ 綁定失敗，請稍後再試！");
-      });
-    }
-
-    function closeWindow() {
-      window.close();
-    }
-
-    window.onload = async function () {
-      const params = getQueryParams();
-      const uid = params.uid || "";
-      const name = params.name || "(未提供)";
-
-      if (!uid) {
-        document.getElementById("not-bound").classList.remove("hidden");
+      if (!liff.isLoggedIn()) {
+        liff.login();
         return;
       }
 
-      document.getElementById("line-uid").textContent = uid;
-      try {
-        const result = await checkMember(uid);
+      profile = await liff.getProfile();
+      document.getElementById("line-uid").textContent = profile.userId;
+      document.getElementById("line-name").textContent = profile.displayName;
+
+      fetch("https://hook.us1.make.com/9eyj2txrgwrx48xuui6nqmu7wb35lo7o", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ line_uid: profile.userId })
+      })
+      .then(res => res.json())
+      .then(result => {
+        document.getElementById("loading").style.display = "none";
+
         if (result.status === "bound") {
           document.getElementById("bound").classList.remove("hidden");
-          document.getElementById("line-name").textContent = name;
         } else {
           document.getElementById("not-bound").classList.remove("hidden");
         }
-      } catch (e) {
-        document.getElementById("not-bound").classList.remove("hidden");
-      }
-    };
+      })
+      .catch(err => {
+        document.getElementById("loading").textContent = "查詢失敗，請稍後重試";
+        console.error("查詢綁定狀態錯誤", err);
+      });
+    }
+
+    async function bindMember() {
+      const idToken = liff.getDecodedIDToken();
+
+      const payload = {
+        line_uid: profile.userId,
+        displayName: profile.displayName,
+        email: idToken?.email || ''
+      };
+
+      await fetch("https://hook.us1.make.com/i8cmkbyr9wscq55dtf1akwtiu3vo23sy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      alert("綁定成功！");
+      liff.closeWindow();
+    }
+
+    function closeWindow() {
+      liff.closeWindow();
+    }
+
+    init();
   </script>
 </body>
 </html>

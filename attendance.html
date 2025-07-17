@@ -39,7 +39,7 @@
 
     async function init() {
       try {
-        await liff.init({ liffId: "YOUR_LIFF_ID" });
+        await liff.init({ liffId: "2007763002-9GM3O8OP" });
 
         if (!liff.isLoggedIn()) {
           liff.login();
@@ -91,7 +91,7 @@
           device: deviceInfo
         };
 
-        await fetch("YOUR_WEBHOOK", {
+        await fetch("https://hook.us1.make.com/4a0wsvkifag98hafristh5ni4flsqk59", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)

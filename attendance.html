@@ -27,7 +27,7 @@
   <div id="main" class="hidden w-full max-w-md bg-white border-2 border-orange-200 rounded-3xl shadow-lg p-6 space-y-6 text-center">
     <p class="text-gray-800 text-base">👤 <span id="lineName" class="font-semibold text-green-700"></span></p>
     <div class="grid grid-cols-2 gap-4">
-      <button onclick="punch('in')" class="bg-green-500 text-white py-3 rounded-full font-bold shadow hover:bg-green-600 transition">上班打卡</button>
+      <button onclick="punch('in')" class="bg-green-500 text-white py-3 rounded-full font-bold shadow hover:bg-green-600 transition">到班打卡</button>
       <button onclick="punch('out')" class="bg-orange-500 text-white py-3 rounded-full font-bold shadow hover:bg-orange-600 transition">下班打卡</button>
     </div>
     <p id="message" class="text-sm text-gray-600"></p>
@@ -58,7 +58,7 @@
     }
 
     async function punch(type) {
-      const msg = type === 'in' ? '上班打卡中…' : '下班打卡中…';
+      const msg = type === 'in' ? '到班打卡中…' : '下班打卡中…';
       document.getElementById("message").textContent = msg;
 
       try {
@@ -78,7 +78,7 @@
           body: JSON.stringify(payload)
         });
 
-        document.getElementById("message").textContent = type === 'in' ? '✅ 上班打卡完成！' : '✅ 下班打卡完成！';
+        document.getElementById("message").textContent = type === 'in' ? '✅ 到班打卡完成！' : '✅ 下班打卡完成！';
       } catch (error) {
         document.getElementById("message").textContent = "❌ 打卡失敗，請稍後再試";
         console.error("打卡失敗:", error);

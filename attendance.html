@@ -26,11 +26,11 @@
 
   <div id="main" class="hidden w-full max-w-md bg-white border-2 border-orange-200 rounded-3xl shadow-lg p-6 space-y-6 text-center">
     <p class="text-gray-800 text-base">👤 <span id="lineName" class="font-semibold text-green-700"></span></p>
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-2 gap-4" id="punchButtons">
       <button id="punchInBtn" onclick="punch('in')" class="bg-green-500 text-white py-3 rounded-full font-bold shadow hover:bg-green-600 transition">上班打卡</button>
       <button id="punchOutBtn" onclick="punch('out')" class="bg-orange-500 text-white py-3 rounded-full font-bold shadow hover:bg-orange-600 transition">下班打卡</button>
     </div>
-    <p id="message" class="text-sm text-gray-600"></p>
+    <p id="message" class="text-lg font-bold text-green-700"></p>
     <button onclick="closeWindow()" class="mt-4 bg-brown-100 text-brown-800 py-2 px-6 rounded-full text-sm shadow hover:bg-brown-200">關閉視窗</button>
   </div>
 
@@ -57,11 +57,9 @@
         const outBtn = document.getElementById("punchOutBtn");
 
         if (!lastRecord || !lastRecord.punchType || lastRecord.punchType === 'out') {
-          // 無紀錄 或 上次為下班卡 或 punchType 為 null → 只能打上班卡
           outBtn.disabled = true;
           outBtn.classList.add('opacity-40');
         } else if (lastRecord.punchType === 'in') {
-          // 上次為上班卡 → 只能打下班卡
           inBtn.disabled = true;
           inBtn.classList.add('opacity-40');
         }
@@ -101,6 +99,9 @@
           body: JSON.stringify(payload)
         });
 
+        document.getElementById("punchButtons").classList.add("hidden");
+        document.getElementById("message").classList.remove("text-gray-600");
+        document.getElementById("message").classList.add("text-2xl", "text-green-700", "font-bold");
         document.getElementById("message").textContent = type === 'in' ? '✅ 上班打卡完成！' : '✅ 下班打卡完成！';
 
       } catch (error) {

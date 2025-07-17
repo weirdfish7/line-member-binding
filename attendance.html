@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LINE 會員打卡系統</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', 'Noto Sans TC', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-tr from-green-50 via-orange-50 to-amber-100 min-h-screen flex flex-col items-center justify-center px-6 py-10">
+
+  <!-- LOGO -->
+  <div class="mb-4">
+    <img src="/愛護安小logo.png" alt="品牌 LOGO" class="w-24 h-24 object-contain mx-auto drop-shadow-lg" />
+  </div>
+
+  <h1 class="text-3xl font-bold text-green-800 mb-2">會員打卡系統</h1>
+  <p class="text-brown-700 mb-6 text-base">請選擇要打卡的類型</p>
+
+  <div id="loading" class="text-gray-500 text-sm">載入中，請稍候...</div>
+
+  <div id="main" class="hidden w-full max-w-md bg-white border-2 border-orange-200 rounded-3xl shadow-lg p-6 space-y-6 text-center">
+    <p class="text-gray-800 text-base">👤 <span id="lineName" class="font-semibold text-green-700"></span></p>
+    <div class="grid grid-cols-2 gap-4">
+      <button onclick="punch('in')" class="bg-green-500 text-white py-3 rounded-full font-bold shadow hover:bg-green-600 transition">上班打卡</button>
+      <button onclick="punch('out')" class="bg-orange-500 text-white py-3 rounded-full font-bold shadow hover:bg-orange-600 transition">下班打卡</button>
+    </div>
+    <p id="message" class="text-sm text-gray-600"></p>
+    <button onclick="closeWindow()" class="mt-4 bg-brown-100 text-brown-800 py-2 px-6 rounded-full text-sm shadow hover:bg-brown-200">關閉視窗</button>
+  </div>
+
+  <script>
+    let profile;
+
+    async function init() {
+      try {
+        await liff.init({ liffId: "2007763002-GaqlwXwO" });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        profile = await liff.getProfile();
+        document.getElementById("lineName").textContent = profile.displayName;
+
+        document.getElementById("loading").classList.add("hidden");
+        document.getElementById("main").classList.remove("hidden");
+      } catch (error) {
+        document.getElementById("loading").textContent = "初始化失敗，請稍後再試。";
+        console.error("LIFF Init Error:", error);
+      }
+    }
+
+    async function punch(type) {
+      const msg = type === 'in' ? '上班打卡中…' : '下班打卡中…';
+      document.getElementById("message").textContent = msg;
+
+      try {
+        const idToken = liff.getDecodedIDToken();
+
+        const payload = {
+          line_uid: profile.userId,
+          displayName: profile.displayName,
+          email: idToken?.email || '',
+          punchType: type,
+          timestamp: new Date().toISOString()
+        };
+
+        await fetch("https://hook.us1.make.com/4a0wsvkifag98hafristh5ni4flsqk59", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        document.getElementById("message").textContent = type === 'in' ? '✅ 上班打卡完成！' : '✅ 下班打卡完成！';
+      } catch (error) {
+        document.getElementById("message").textContent = "❌ 打卡失敗，請稍後再試";
+        console.error("打卡失敗:", error);
+      }
+    }
+
+    function closeWindow() {
+      liff.closeWindow();
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -51,15 +51,19 @@
 
         // 取得最後打卡紀錄以決定 UI 狀態
         const lastRecord = await fetch(`https://script.google.com/macros/s/AKfycbx6m-j7eNT--TmRfbSAGEakvyZvbmf6wRvWOvpH7JPcn7t8HfNcUlKEycXJFl2l7JIeyw/exec?uid=${profile.userId}`).then(r => r.json());
+        console.log("最後打卡紀錄", lastRecord);
 
-        if (!lastRecord || lastRecord.punchType === 'out') {
-          // 沒紀錄或上次是下班卡 → 只能打上班卡
-          document.getElementById("punchOutBtn").disabled = true;
-          document.getElementById("punchOutBtn").classList.add('opacity-40');
+        const inBtn = document.getElementById("punchInBtn");
+        const outBtn = document.getElementById("punchOutBtn");
+
+        if (!lastRecord || !lastRecord.punchType || lastRecord.punchType === 'out') {
+          // 無紀錄 或 上次為下班卡 或 punchType 為 null → 只能打上班卡
+          outBtn.disabled = true;
+          outBtn.classList.add('opacity-40');
         } else if (lastRecord.punchType === 'in') {
-          // 上次是上班卡 → 只能打下班卡
-          document.getElementById("punchInBtn").disabled = true;
-          document.getElementById("punchInBtn").classList.add('opacity-40');
+          // 上次為上班卡 → 只能打下班卡
+          inBtn.disabled = true;
+          inBtn.classList.add('opacity-40');
         }
 
         document.getElementById("loading").classList.add("hidden");

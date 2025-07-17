@@ -27,8 +27,8 @@
   <div id="main" class="hidden w-full max-w-md bg-white border-2 border-orange-200 rounded-3xl shadow-lg p-6 space-y-6 text-center">
     <p class="text-gray-800 text-base">👤 <span id="lineName" class="font-semibold text-green-700"></span></p>
     <div class="grid grid-cols-2 gap-4">
-      <button onclick="punch('in')" class="bg-green-500 text-white py-3 rounded-full font-bold shadow hover:bg-green-600 transition">上班打卡</button>
-      <button onclick="punch('out')" class="bg-orange-500 text-white py-3 rounded-full font-bold shadow hover:bg-orange-600 transition">下班打卡</button>
+      <button id="punchInBtn" onclick="punch('in')" class="bg-green-500 text-white py-3 rounded-full font-bold shadow hover:bg-green-600 transition">上班打卡</button>
+      <button id="punchOutBtn" onclick="punch('out')" class="bg-orange-500 text-white py-3 rounded-full font-bold shadow hover:bg-orange-600 transition">下班打卡</button>
     </div>
     <p id="message" class="text-sm text-gray-600"></p>
     <button onclick="closeWindow()" class="mt-4 bg-brown-100 text-brown-800 py-2 px-6 rounded-full text-sm shadow hover:bg-brown-200">關閉視窗</button>
@@ -39,7 +39,7 @@
 
     async function init() {
       try {
-        await liff.init({ liffId: "2007763002-9GM3O8OP" });
+        await liff.init({ liffId: "YOUR_LIFF_ID" });
 
         if (!liff.isLoggedIn()) {
           liff.login();
@@ -49,8 +49,22 @@
         profile = await liff.getProfile();
         document.getElementById("lineName").textContent = profile.displayName;
 
+        // 取得最後打卡紀錄以決定 UI 狀態
+        const lastRecord = await fetch(`https://script.google.com/macros/s/AKfycbx6m-j7eNT--TmRfbSAGEakvyZvbmf6wRvWOvpH7JPcn7t8HfNcUlKEycXJFl2l7JIeyw/exec?uid=${profile.userId}`).then(r => r.json());
+
+        if (!lastRecord || lastRecord.punchType === 'out') {
+          // 沒紀錄或上次是下班卡 → 只能打上班卡
+          document.getElementById("punchOutBtn").disabled = true;
+          document.getElementById("punchOutBtn").classList.add('opacity-40');
+        } else if (lastRecord.punchType === 'in') {
+          // 上次是上班卡 → 只能打下班卡
+          document.getElementById("punchInBtn").disabled = true;
+          document.getElementById("punchInBtn").classList.add('opacity-40');
+        }
+
         document.getElementById("loading").classList.add("hidden");
         document.getElementById("main").classList.remove("hidden");
+
       } catch (error) {
         document.getElementById("loading").textContent = "初始化失敗，請稍後再試。";
         console.error("LIFF Init Error:", error);
@@ -58,15 +72,11 @@
     }
 
     async function punch(type) {
-      document.getElementById("message").textContent = type === 'in' ? '到班打卡中…' : '下班打卡中…';
+      document.getElementById("message").textContent = type === 'in' ? '上班打卡中…' : '下班打卡中…';
 
       try {
         const idToken = liff.getDecodedIDToken();
-
-        // 裝置資訊
         const deviceInfo = navigator.userAgent;
-
-        // 取得 IP
         const ipResponse = await fetch('https://api.ipify.org?format=json');
         const ipData = await ipResponse.json();
         const ip = ipData.ip;
@@ -81,7 +91,7 @@
           device: deviceInfo
         };
 
-        await fetch("https://hook.us1.make.com/4a0wsvkifag98hafristh5ni4flsqk59", {
+        await fetch("YOUR_WEBHOOK", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)

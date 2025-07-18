@@ -1,0 +1,81 @@
+<script>
+  const SUPABASE_URL = "https://ucrgtvmwgexwctixabgi.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjcmd0dm13Z2V4d2N0aXhhYmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4MDQ1MTMsImV4cCI6MjA2ODM4MDUxM30.cAbecnHr3R2deyQfTcP5-S-PDcBkNVhD3TleMQsgoAo";
+  const SUPABASE_HEADERS = {
+    "apikey": SUPABASE_ANON_KEY,
+    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+    "Content-Type": "application/json"
+  };
+
+  let profile;
+
+  async function init() {
+    try {
+      await liff.init({ liffId: "2007763002-9GM3O8OP" });
+
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+
+      profile = await liff.getProfile();
+      document.getElementById("line-name").textContent = profile.displayName;
+
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/users?uid=eq.${profile.userId}`, {
+        headers: SUPABASE_HEADERS
+      });
+
+      const users = await res.json();
+
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("card").classList.remove("hidden");
+
+      if (users.length > 0) {
+        document.getElementById("bound").classList.remove("hidden");
+        document.getElementById("bound-phone").textContent = users[0].phone || '';
+      } else {
+        document.getElementById("not-bound").classList.remove("hidden");
+      }
+
+    } catch (err) {
+      document.getElementById("loading").textContent = "查詢失敗，請稍後重試";
+      console.error("初始化或查詢錯誤", err);
+    }
+  }
+
+  async function bindMember() {
+    const idToken = liff.getDecodedIDToken();
+    const phone = document.getElementById("phone").value.trim();
+
+    const payload = {
+      uid: profile.userId,
+      display_name: profile.displayName,
+      phone: phone
+    };
+
+    await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+      method: "POST",
+      headers: SUPABASE_HEADERS,
+      body: JSON.stringify(payload)
+    });
+
+    document.getElementById("not-bound").classList.add("hidden");
+    document.getElementById("bound").classList.remove("hidden");
+    document.getElementById("bound-phone").textContent = phone;
+  }
+
+  function closeWindow() {
+    liff.closeWindow();
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const phoneInput = document.getElementById("phone");
+    const bindBtn = document.getElementById("bindBtn");
+
+    phoneInput?.addEventListener("input", () => {
+      bindBtn.disabled = phoneInput.value.trim().length === 0;
+    });
+  });
+
+  init();
+</script>

@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       const errorText = await result.text();
       return res.status(result.status).json({ success: false, message: errorText });
     }
-
+<!-- force redeploy -->
     return res.status(200).json({ success: true });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });

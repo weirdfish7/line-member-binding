@@ -13,17 +13,30 @@ export default async function handler(req, res) {
     const result = await fetch(`https://api.line.me/v2/bot/user/${uid}/richmenu/${process.env.LINE_RICHMENU_ID}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.LINE_CHANNEL_TOKEN}`
+        'Authorization': `Bearer ${process.env.LINE_CHANNEL_TOKEN}`,
+        'Content-Type': 'application/json'
       }
     });
 
+    const contentType = result.headers.get('content-type');
+
     if (!result.ok) {
-      const errorText = await result.text();
-      return res.status(result.status).json({ success: false, message: errorText });
+      const errorText = contentType && contentType.includes('application/json')
+        ? await result.json()
+        : await result.text();
+
+      return res.status(result.status).json({
+        success: false,
+        message: errorText
+      });
     }
-<!-- force redeploy -->
+
     return res.status(200).json({ success: true });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('setRichmenu error:', err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Internal Server Error'
+    });
   }
 }

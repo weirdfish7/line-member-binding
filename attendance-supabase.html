@@ -110,25 +110,40 @@
         return;
       }
 
-      try {
-        const { error } = await supabase.from("punch_logs").insert([
-          {
-            user_id: userId,
-            punch_type: targetType,
-            note: "來自 LIFF 打卡"
-          }
-        ]);
-
-        if (error) throw error;
-
-        document.getElementById("punchButtons").classList.add("hidden");
-        document.getElementById("message").classList.add("text-green-600", "text-xl", "font-bold");
-        document.getElementById("message").textContent = `✅ ${targetType}打卡完成！`;
-
-      } catch (err) {
-        document.getElementById("message").textContent = "❌ 打卡失敗，請稍後再試";
-        console.error("打卡失敗:", err);
+      if (!navigator.geolocation) {
+        document.getElementById("message").textContent = "⚠️ 無法取得定位資訊，請開啟瀏覽器定位權限";
+        return;
       }
+
+      navigator.geolocation.getCurrentPosition(async function (position) {
+        const lat = position.coords.latitude.toFixed(6);
+        const lon = position.coords.longitude.toFixed(6);
+
+        try {
+          const { error } = await supabase.from("punch_logs").insert([
+            {
+              user_id: userId,
+              punch_type: targetType,
+              note: "來自 LIFF 打卡",
+              latitude: lat,
+              longitude: lon
+            }
+          ]);
+
+          if (error) throw error;
+
+          document.getElementById("punchButtons").classList.add("hidden");
+          document.getElementById("message").classList.add("text-green-600", "text-xl", "font-bold");
+          document.getElementById("message").textContent = `✅ ${targetType}打卡完成！（含定位）`;
+
+        } catch (err) {
+          document.getElementById("message").textContent = "❌ 打卡失敗，請稍後再試";
+          console.error("打卡失敗:", err);
+        }
+      }, function (error) {
+        document.getElementById("message").textContent = "❌ 定位失敗，請允許瀏覽器取得位置資訊";
+        console.error("定位失敗:", error);
+      });
     }
 
     function closeWindow() {

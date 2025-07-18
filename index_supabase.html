@@ -2,38 +2,67 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>LINE 會員綁定</title>
-  <style>
-    .hidden { display: none; }
-  </style>
-</head>
-<body>
-  <div id="loading">載入中，請稍候...</div>
-
-  <div id="card" class="hidden">
-    <p>你好，<span id="line-name"></span>！</p>
-
-    <div id="bound" class="hidden">
-      <p>✅ 您已綁定會員！</p>
-      <p>📞 電話：<span id="bound-phone"></span></p>
-    </div>
-
-    <div id="not-bound" class="hidden">
-      <p>🔓 尚未綁定會員，請輸入電話：</p>
-      <input type="text" id="phone" placeholder="請輸入電話" />
-      <button id="bindBtn" disabled>綁定會員</button>
-    </div>
-
-    <button onclick="closeWindow()">關閉</button>
-  </div>
-
-  <!-- ✅ 請務必放在你自己的程式碼前面 -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
+    <h1 class="text-center text-2xl font-bold text-gray-800 mb-2">LINE 會員綁定</h1>
+    <p class="text-center text-gray-500 mb-6 text-sm">line-member-binding.vercel.app</p>
+
+    <div id="loading" class="text-center text-gray-500 text-sm">載入中，請稍候...</div>
+
+    <div id="main" class="hidden space-y-6 text-center">
+      <!-- 已綁定會員 -->
+      <div id="bound" class="hidden">
+        <p class="text-lg font-medium text-gray-700">
+          🎉 歡迎回來，<span id="line-name" class="text-green-600 font-semibold"></span>！
+        </p>
+        <p class="text-sm text-gray-500 mt-2">你已成功綁定會員電話</p>
+        <div class="text-xl font-bold text-green-600 mt-4">
+          📱 <span id="bound-phone"></span>
+        </div>
+      </div>
+
+      <!-- 尚未綁定 -->
+      <div id="not-bound" class="hidden">
+        <p class="text-lg font-medium text-gray-700">
+          👋 哈囉，<span id="line-name-unbound" class="text-green-600 font-semibold"></span>！
+        </p>
+        <p class="text-sm text-gray-500 mt-2">尚未綁定會員，請輸入電話：</p>
+        <input
+          id="phone"
+          type="tel"
+          inputmode="numeric"
+          maxlength="20"
+          placeholder="請輸入電話"
+          class="mt-4 px-4 py-2 w-full border rounded-lg focus:ring-2 focus:ring-green-500"
+        />
+        <button
+          id="bindBtn"
+          class="mt-4 w-full bg-green-600 text-white px-4 py-2 rounded-lg font-semibold disabled:opacity-50"
+          onclick="bindMember()"
+          disabled
+        >
+          綁定會員
+        </button>
+      </div>
+
+      <button
+        onclick="closeWindow()"
+        class="text-sm text-gray-500 underline"
+      >
+        關閉視窗
+      </button>
+    </div>
+  </div>
 
   <script>
     const SUPABASE_URL = "https://ucrgtvmwgexwctixabgi.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjcmd0dm13Z2V4d2N0aXhhYmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4MDQ1MTMsImV4cCI6MjA2ODM4MDUxM30.cAbecnHr3R2deyQfTcP5-S-PDcBkNVhD3TleMQsgoAo";
+
     const SUPABASE_HEADERS = {
       "apikey": SUPABASE_ANON_KEY,
       "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
@@ -44,7 +73,7 @@
 
     async function init() {
       try {
-        await liff.init({ liffId: "2007763002-GaqlwXwO" }); // ← 請替換為你自己的 LIFF ID
+        await liff.init({ liffId: "2007763002-GaqlwXwO" }); // ← 請填入你自己的 LIFF ID
 
         if (!liff.isLoggedIn()) {
           liff.login();
@@ -53,15 +82,15 @@
 
         profile = await liff.getProfile();
         document.getElementById("line-name").textContent = profile.displayName;
+        document.getElementById("line-name-unbound").textContent = profile.displayName;
 
         const res = await fetch(`${SUPABASE_URL}/rest/v1/users?uid=eq.${profile.userId}`, {
           headers: SUPABASE_HEADERS
         });
-
         const users = await res.json();
 
         document.getElementById("loading").style.display = "none";
-        document.getElementById("card").classList.remove("hidden");
+        document.getElementById("main").classList.remove("hidden");
 
         if (users.length > 0) {
           document.getElementById("bound").classList.remove("hidden");
@@ -71,8 +100,8 @@
         }
 
       } catch (err) {
-        document.getElementById("loading").textContent = "查詢失敗，請稍後重試";
         console.error("初始化或查詢錯誤", err);
+        document.getElementById("loading").textContent = "查詢失敗，請稍後重試";
       }
     }
 
@@ -108,10 +137,8 @@
         bindBtn.disabled = phoneInput.value.trim().length === 0;
       });
 
-      bindBtn?.addEventListener("click", bindMember);
+      init();
     });
-
-    init();
   </script>
 </body>
 </html>

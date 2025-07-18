@@ -121,12 +121,14 @@
         body: JSON.stringify(payload)
       });
 
-      await fetch(`https://api.line.me/v2/bot/user/${profile.userId}/richmenu/${RICHMENU_ID}`, {
+      await fetch("/api/setRichmenu", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${LINE_CHANNEL_TOKEN}`
-        }
+        "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ uid: profile.userId })
       });
+
 
       document.getElementById("not-bound").classList.add("hidden");
       document.getElementById("bound").classList.remove("hidden");

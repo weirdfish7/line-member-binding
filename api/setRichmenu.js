@@ -16,7 +16,7 @@ export default async function handler(req, res) {
         'Authorization': `Bearer ${process.env.LINE_CHANNEL_TOKEN}`,
         'Content-Type': 'application/json'
       }
-    });
+    }); //ok
 
     const contentType = result.headers.get('content-type');
 

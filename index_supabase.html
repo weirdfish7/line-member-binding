@@ -1,87 +1,117 @@
-<script>
-  const SUPABASE_URL = "https://ucrgtvmwgexwctixabgi.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjcmd0dm13Z2V4d2N0aXhhYmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4MDQ1MTMsImV4cCI6MjA2ODM4MDUxM30.cAbecnHr3R2deyQfTcP5-S-PDcBkNVhD3TleMQsgoAo";
-  const SUPABASE_HEADERS = {
-    "apikey": SUPABASE_ANON_KEY,
-    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-    "Content-Type": "application/json"
-  };
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LINE 會員綁定</title>
+  <style>
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="loading">載入中，請稍候...</div>
 
-  let profile;
+  <div id="card" class="hidden">
+    <p>你好，<span id="line-name"></span>！</p>
 
-  async function init() {
-    try {
-      await liff.init({ liffId: "2007763002-9GM3O8OP" });
+    <div id="bound" class="hidden">
+      <p>✅ 您已綁定會員！</p>
+      <p>📞 電話：<span id="bound-phone"></span></p>
+    </div>
 
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return;
-      }
+    <div id="not-bound" class="hidden">
+      <p>🔓 尚未綁定會員，請輸入電話：</p>
+      <input type="text" id="phone" placeholder="請輸入電話" />
+      <button id="bindBtn" disabled>綁定會員</button>
+    </div>
 
-      profile = await liff.getProfile();
+    <button onclick="closeWindow()">關閉</button>
+  </div>
 
-      const nameEl = document.getElementById("line-name");
-      if (nameEl) {
-        nameEl.textContent = profile.displayName;
-      }
+  <!-- ✅ 請務必放在你自己的程式碼前面 -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/users?uid=eq.${profile.userId}`, {
-        headers: SUPABASE_HEADERS
-      });
-
-      const users = await res.json();
-
-      const loadingEl = document.getElementById("loading");
-      const cardEl = document.getElementById("card");
-      if (loadingEl) loadingEl.style.display = "none";
-      if (cardEl) cardEl.classList.remove("hidden");
-
-      if (users.length > 0) {
-        document.getElementById("bound")?.classList.remove("hidden");
-        document.getElementById("bound-phone").textContent = users[0].phone || '';
-      } else {
-        document.getElementById("not-bound")?.classList.remove("hidden");
-      }
-
-    } catch (err) {
-      const loadingEl = document.getElementById("loading");
-      if (loadingEl) loadingEl.textContent = "查詢失敗，請稍後重試";
-      console.error("初始化或查詢錯誤", err);
-    }
-  }
-
-  async function bindMember() {
-    const phone = document.getElementById("phone")?.value.trim();
-
-    const payload = {
-      uid: profile.userId,
-      display_name: profile.displayName,
-      phone: phone
+  <script>
+    const SUPABASE_URL = "https://ucrgtvmwgexwctixabgi.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjcmd0dm13Z2V4d2N0aXhhYmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4MDQ1MTMsImV4cCI6MjA2ODM4MDUxM30.cAbecnHr3R2deyQfTcP5-S-PDcBkNVhD3TleMQsgoAo";
+    const SUPABASE_HEADERS = {
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json"
     };
 
-    await fetch(`${SUPABASE_URL}/rest/v1/users`, {
-      method: "POST",
-      headers: SUPABASE_HEADERS,
-      body: JSON.stringify(payload)
+    let profile;
+
+    async function init() {
+      try {
+        await liff.init({ liffId: "2007763002-9GM3O8OP" }); // ← 請替換為你自己的 LIFF ID
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        profile = await liff.getProfile();
+        document.getElementById("line-name").textContent = profile.displayName;
+
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/users?uid=eq.${profile.userId}`, {
+          headers: SUPABASE_HEADERS
+        });
+
+        const users = await res.json();
+
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("card").classList.remove("hidden");
+
+        if (users.length > 0) {
+          document.getElementById("bound").classList.remove("hidden");
+          document.getElementById("bound-phone").textContent = users[0].phone || '';
+        } else {
+          document.getElementById("not-bound").classList.remove("hidden");
+        }
+
+      } catch (err) {
+        document.getElementById("loading").textContent = "查詢失敗，請稍後重試";
+        console.error("初始化或查詢錯誤", err);
+      }
+    }
+
+    async function bindMember() {
+      const phone = document.getElementById("phone").value.trim();
+
+      const payload = {
+        uid: profile.userId,
+        display_name: profile.displayName,
+        phone: phone
+      };
+
+      await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+        method: "POST",
+        headers: SUPABASE_HEADERS,
+        body: JSON.stringify(payload)
+      });
+
+      document.getElementById("not-bound").classList.add("hidden");
+      document.getElementById("bound").classList.remove("hidden");
+      document.getElementById("bound-phone").textContent = phone;
+    }
+
+    function closeWindow() {
+      liff.closeWindow();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const phoneInput = document.getElementById("phone");
+      const bindBtn = document.getElementById("bindBtn");
+
+      phoneInput?.addEventListener("input", () => {
+        bindBtn.disabled = phoneInput.value.trim().length === 0;
+      });
+
+      bindBtn?.addEventListener("click", bindMember);
     });
 
-    document.getElementById("not-bound")?.classList.add("hidden");
-    document.getElementById("bound")?.classList.remove("hidden");
-    document.getElementById("bound-phone").textContent = phone;
-  }
-
-  function closeWindow() {
-    liff.closeWindow();
-  }
-
-  document.addEventListener("DOMContentLoaded", () => {
-    const phoneInput = document.getElementById("phone");
-    const bindBtn = document.getElementById("bindBtn");
-
-    phoneInput?.addEventListener("input", () => {
-      bindBtn.disabled = phoneInput.value.trim().length === 0;
-    });
-  });
-
-  init();
-</script>
+    init();
+  </script>
+</body>
+</html>

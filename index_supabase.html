@@ -107,33 +107,39 @@
     }
 
     async function bindMember() {
-      const phone = document.getElementById("phone").value.trim();
+  const phone = document.getElementById("phone").value.trim();
 
-      const payload = {
-        uid: profile.userId,
-        display_name: profile.displayName,
-        phone: phone
-      };
+  const payload = {
+    uid: profile.userId,
+    display_name: profile.displayName,
+    phone: phone
+  };
 
-      await fetch(`${SUPABASE_URL}/rest/v1/users`, {
-        method: "POST",
-        headers: SUPABASE_HEADERS,
-        body: JSON.stringify(payload)
-      });
+  // 寫入 Supabase 使用者資料
+  await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+    method: "POST",
+    headers: SUPABASE_HEADERS,
+    body: JSON.stringify(payload)
+  });
 
-      await fetch("/api/setRichmenu", {
-        method: "POST",
-        headers: {
-        "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ uid: profile.userId })
-      });
+  // 呼叫後端 API 切換 Rich Menu
+  const result = await fetch("/api/setRichmenu", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ uid: profile.userId })
+  });
 
+  const data = await result.json();
+  console.log("RichMenu switch:", data); // ← 可觀察後端回應，幫助除錯
 
-      document.getElementById("not-bound").classList.add("hidden");
-      document.getElementById("bound").classList.remove("hidden");
-      document.getElementById("bound-phone").textContent = phone;
-    }
+  // UI 切換顯示
+  document.getElementById("not-bound").classList.add("hidden");
+  document.getElementById("bound").classList.remove("hidden");
+  document.getElementById("bound-phone").textContent = phone;
+}
+
 
     function closeWindow() {
       liff.closeWindow();

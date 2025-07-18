@@ -1,0 +1,110 @@
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://ucrgtvmwgexwctixabgi.supabase.co';         // ← 改成你的 Supabase 專案網址
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjcmd0dm13Z2V4d2N0aXhhYmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4MDQ1MTMsImV4cCI6MjA2ODM4MDUxM30.cAbecnHr3R2deyQfTcP5-S-PDcBkNVhD3TleMQsgoAo';                          // ← 改成你的 Supabase 公鑰
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let profile;
+  let userId;
+  let lastPunchType;
+
+  async function init() {
+    try {
+      await liff.init({ liffId: "2007763002-9GM3O8OP" });
+
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+
+      profile = await liff.getProfile();
+      document.getElementById("lineName").textContent = profile.displayName;
+
+      // 查詢是否已綁定會員
+      const { data: user, error: findErr } = await supabase
+        .from("users")
+        .select("id")
+        .eq("uid", profile.userId)
+        .single();
+
+      if (findErr || !user) {
+        document.getElementById("loading").textContent = "⚠️ 尚未完成會員綁定，請從圖文選單重新進入";
+        return;
+      }
+
+      userId = user.id;
+
+      // 查詢最後一筆打卡紀錄
+      const { data: last, error: lastErr } = await supabase
+        .from("punch_logs")
+        .select("punch_type")
+        .eq("user_id", userId)
+        .order("punched_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      lastPunchType = last?.punch_type || null;
+
+      // 根據打卡狀態調整按鈕可用性
+      const inBtn = document.getElementById("punchInBtn");
+      const outBtn = document.getElementById("punchOutBtn");
+
+      if (lastPunchType === '上班') {
+        inBtn.disabled = true;
+        inBtn.classList.add("opacity-40");
+      } else if (lastPunchType === '下班') {
+        outBtn.disabled = true;
+        outBtn.classList.add("opacity-40");
+      }
+
+      document.getElementById("loading").classList.add("hidden");
+      document.getElementById("main").classList.remove("hidden");
+
+    } catch (error) {
+      document.getElementById("loading").textContent = "初始化失敗，請稍後再試。";
+      console.error("LIFF Init Error:", error);
+    }
+  }
+
+  async function punch(type) {
+    document.getElementById("message").textContent = type === 'in' ? '上班打卡中…' : '下班打卡中…';
+
+    const targetType = type === 'in' ? '上班' : '下班';
+
+    // 防重複邏輯
+    if (
+      (targetType === '上班' && lastPunchType === '上班') ||
+      (targetType === '下班' && lastPunchType === '下班')
+    ) {
+      document.getElementById("message").textContent = `⚠️ 已經打過${targetType}卡，請勿重複打卡`;
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("punch_logs").insert([
+        {
+          user_id: userId,
+          punch_type: targetType,
+          note: '來自 LIFF 打卡'
+        }
+      ]);
+
+      if (error) throw error;
+
+      document.getElementById("punchButtons").classList.add("hidden");
+      document.getElementById("message").classList.add("text-2xl", "text-green-700", "font-bold");
+      document.getElementById("message").textContent = `✅ ${targetType}打卡完成！`;
+
+    } catch (error) {
+      document.getElementById("message").textContent = "❌ 打卡失敗，請稍後再試";
+      console.error("打卡失敗:", error);
+    }
+  }
+
+  function closeWindow() {
+    liff.closeWindow();
+  }
+
+  init();
+</script>

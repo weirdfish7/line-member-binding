@@ -120,6 +120,14 @@
         body: JSON.stringify(payload)
       });
 
+  // 套用 Rich Menu（這裡是關鍵）
+      await fetch("https://api.line.me/v2/bot/user/" + profile.userId + "/richmenu/richmenu-6ee1eae079c62fe4e189b413e02d1826", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer 6Q5QeI9Fx7vj+B/h4LwSBjP72xu8y4h/3MY8/0vh4+F3nr7NIH6006wMc9vsrkgUzuO/GQ8jesZ7A1mmOiGW6GbbGj8ARSWrz3m6JcyfB4L3ZR2wlOPO9OEtYmOmpZusxSHZfKuMNmzLvV0GwrfrwAdB04t89/1O/w1cDnyilFU="
+        }
+      });
+      
       document.getElementById("not-bound").classList.add("hidden");
       document.getElementById("bound").classList.remove("hidden");
       document.getElementById("bound-phone").textContent = phone;

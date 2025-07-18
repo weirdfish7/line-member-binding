@@ -19,7 +19,11 @@
       }
 
       profile = await liff.getProfile();
-      document.getElementById("line-name").textContent = profile.displayName;
+
+      const nameEl = document.getElementById("line-name");
+      if (nameEl) {
+        nameEl.textContent = profile.displayName;
+      }
 
       const res = await fetch(`${SUPABASE_URL}/rest/v1/users?uid=eq.${profile.userId}`, {
         headers: SUPABASE_HEADERS
@@ -27,25 +31,27 @@
 
       const users = await res.json();
 
-      document.getElementById("loading").style.display = "none";
-      document.getElementById("card").classList.remove("hidden");
+      const loadingEl = document.getElementById("loading");
+      const cardEl = document.getElementById("card");
+      if (loadingEl) loadingEl.style.display = "none";
+      if (cardEl) cardEl.classList.remove("hidden");
 
       if (users.length > 0) {
-        document.getElementById("bound").classList.remove("hidden");
+        document.getElementById("bound")?.classList.remove("hidden");
         document.getElementById("bound-phone").textContent = users[0].phone || '';
       } else {
-        document.getElementById("not-bound").classList.remove("hidden");
+        document.getElementById("not-bound")?.classList.remove("hidden");
       }
 
     } catch (err) {
-      document.getElementById("loading").textContent = "查詢失敗，請稍後重試";
+      const loadingEl = document.getElementById("loading");
+      if (loadingEl) loadingEl.textContent = "查詢失敗，請稍後重試";
       console.error("初始化或查詢錯誤", err);
     }
   }
 
   async function bindMember() {
-    const idToken = liff.getDecodedIDToken();
-    const phone = document.getElementById("phone").value.trim();
+    const phone = document.getElementById("phone")?.value.trim();
 
     const payload = {
       uid: profile.userId,
@@ -59,8 +65,8 @@
       body: JSON.stringify(payload)
     });
 
-    document.getElementById("not-bound").classList.add("hidden");
-    document.getElementById("bound").classList.remove("hidden");
+    document.getElementById("not-bound")?.classList.add("hidden");
+    document.getElementById("bound")?.classList.remove("hidden");
     document.getElementById("bound-phone").textContent = phone;
   }
 

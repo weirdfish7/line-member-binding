@@ -62,6 +62,9 @@
   <script>
     const SUPABASE_URL = "https://ucrgtvmwgexwctixabgi.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjcmd0dm13Z2V4d2N0aXhhYmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4MDQ1MTMsImV4cCI6MjA2ODM4MDUxM30.cAbecnHr3R2deyQfTcP5-S-PDcBkNVhD3TleMQsgoAo";
+    const LIFF_ID = "2007763002-GaqlwXwO";
+    const RICHMENU_ID = "richmenu-6ee1eae079c62fe4e189b413e02d1826";
+    const LINE_CHANNEL_TOKEN = "6Q5QeI9Fx7vj+B/h4LwSBjP72xu8y4h/3MY8/0vh4+F3nr7NIH6006wMc9vsrkgUzuO/GQ8jesZ7A1mmOiGW6GbbGj8ARSWrz3m6JcyfB4L3ZR2wlOPO9OEtYmOmpZusxSHZfKuMNmzLvV0GwrfrwAdB04t89/1O/w1cDnyilFU="; // 建議移至 .env 或 Vercel Secret
 
     const SUPABASE_HEADERS = {
       "apikey": SUPABASE_ANON_KEY,
@@ -73,8 +76,7 @@
 
     async function init() {
       try {
-        await liff.init({ liffId: "2007763002-GaqlwXwO" }); // ← 請填入你自己的 LIFF ID
-
+        await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) {
           liff.login();
           return;
@@ -98,7 +100,6 @@
         } else {
           document.getElementById("not-bound").classList.remove("hidden");
         }
-
       } catch (err) {
         console.error("初始化或查詢錯誤", err);
         document.getElementById("loading").textContent = "查詢失敗，請稍後重試";
@@ -120,14 +121,13 @@
         body: JSON.stringify(payload)
       });
 
-  // 套用 Rich Menu（這裡是關鍵）
-      await fetch("https://api.line.me/v2/bot/user/" + profile.userId + "/richmenu/richmenu-6ee1eae079c62fe4e189b413e02d1826", {
+      await fetch(`https://api.line.me/v2/bot/user/${profile.userId}/richmenu/${RICHMENU_ID}`, {
         method: "POST",
         headers: {
-          "Authorization": "Bearer 6Q5QeI9Fx7vj+B/h4LwSBjP72xu8y4h/3MY8/0vh4+F3nr7NIH6006wMc9vsrkgUzuO/GQ8jesZ7A1mmOiGW6GbbGj8ARSWrz3m6JcyfB4L3ZR2wlOPO9OEtYmOmpZusxSHZfKuMNmzLvV0GwrfrwAdB04t89/1O/w1cDnyilFU="
+          "Authorization": `Bearer ${LINE_CHANNEL_TOKEN}`
         }
       });
-      
+
       document.getElementById("not-bound").classList.add("hidden");
       document.getElementById("bound").classList.remove("hidden");
       document.getElementById("bound-phone").textContent = phone;

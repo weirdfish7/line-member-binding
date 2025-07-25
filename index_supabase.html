@@ -106,20 +106,17 @@
       }
     }
 
-    async function bindMember() {
+async function bindMember() {
   const phone = document.getElementById("phone").value.trim();
 
-  const payload = {
-    uid: profile.userId,
-    display_name: profile.displayName,
-    phone: phone
-  };
-
-  // 寫入 Supabase 使用者資料
-  await fetch(`${SUPABASE_URL}/rest/v1/users`, {
-    method: "POST",
+  // 直接 PATCH 更新現有會員
+  await fetch(`${SUPABASE_URL}/rest/v1/users?uid=eq.${profile.userId}`, {
+    method: "PATCH",
     headers: SUPABASE_HEADERS,
-    body: JSON.stringify(payload)
+    body: JSON.stringify({
+      display_name: profile.displayName,
+      phone: phone
+    })
   });
 
   // 呼叫後端 API 切換 Rich Menu
@@ -132,13 +129,14 @@
   });
 
   const data = await result.json();
-  console.log("RichMenu switch:", data); // ← 可觀察後端回應，幫助除錯
+  console.log("RichMenu switch:", data);
 
   // UI 切換顯示
   document.getElementById("not-bound").classList.add("hidden");
   document.getElementById("bound").classList.remove("hidden");
   document.getElementById("bound-phone").textContent = phone;
 }
+
 
 
     function closeWindow() {

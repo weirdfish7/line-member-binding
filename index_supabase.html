@@ -115,10 +115,13 @@ async function bindMember() {
     phone: phone
   }];
 
-  // Upsert: 有就更新，沒有就新增
+  // Upsert: 用 uid 做唯一比對，有就更新（會覆蓋現有欄位），沒有就新增
   await fetch(`${SUPABASE_URL}/rest/v1/users?on_conflict=uid`, {
     method: "POST",
-    headers: SUPABASE_HEADERS,
+    headers: {
+      ...SUPABASE_HEADERS,
+      "Prefer": "resolution=merge-duplicates"
+    },
     body: JSON.stringify(payload)
   });
 
@@ -139,6 +142,7 @@ async function bindMember() {
   document.getElementById("bound").classList.remove("hidden");
   document.getElementById("bound-phone").textContent = phone;
 }
+
 
     function closeWindow() {
       liff.closeWindow();

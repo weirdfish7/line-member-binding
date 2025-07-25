@@ -94,12 +94,12 @@
         document.getElementById("loading").style.display = "none";
         document.getElementById("main").classList.remove("hidden");
 
-        if (users.length > 0) {
-          document.getElementById("bound").classList.remove("hidden");
-          document.getElementById("bound-phone").textContent = users[0].phone || '';
-        } else {
-          document.getElementById("not-bound").classList.remove("hidden");
-        }
+if (users.length > 0 && users[0].phone) {
+  document.getElementById("bound").classList.remove("hidden");
+  document.getElementById("bound-phone").textContent = users[0].phone || '';
+} else {
+  document.getElementById("not-bound").classList.remove("hidden");
+}
       } catch (err) {
         console.error("初始化或查詢錯誤", err);
         document.getElementById("loading").textContent = "查詢失敗，請稍後重試";

@@ -60,14 +60,15 @@
 
         const { data: user, error: findErr } = await supabase
           .from("users")
-          .select("id")
+          .select("id, phone")
           .eq("uid", profile.userId)
           .single();
 
-        if (findErr || !user) {
+        if (findErr || !user || !user.phone) {
           document.getElementById("loading").textContent = "⚠️ 尚未完成會員綁定，請從圖文選單重新進入";
           return;
         }
+
 
         userId = user.id;
 

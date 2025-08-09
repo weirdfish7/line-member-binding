@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LINE 會員綁定</title>
+  <title>吾家藥局 會員驗證</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center">
   <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
-    <h1 class="text-center text-2xl font-bold text-gray-800 mb-2">LINE 會員綁定</h1>
+    <h1 class="text-center text-2xl font-bold text-gray-800 mb-2">吾家藥局 會員驗證</h1>
     <p class="text-center text-gray-500 mb-6 text-sm">line-member-binding.vercel.app</p>
 
     <div id="loading" class="text-center text-gray-500 text-sm">載入中，請稍候...</div>
@@ -20,7 +20,7 @@
         <p class="text-lg font-medium text-gray-700">
           🎉 歡迎回來，<span id="line-name" class="text-green-600 font-semibold"></span>！
         </p>
-        <p class="text-sm text-gray-500 mt-2">你已成功綁定會員電話</p>
+        <p class="text-sm text-gray-500 mt-2">你已成功驗證會員電話</p>
         <div class="text-xl font-bold text-green-600 mt-4">
           📱 <span id="bound-phone"></span>
         </div>
@@ -31,7 +31,7 @@
         <p class="text-lg font-medium text-gray-700">
           👋 哈囉，<span id="line-name-unbound" class="text-green-600 font-semibold"></span>！
         </p>
-        <p class="text-sm text-gray-500 mt-2">尚未綁定會員，請輸入電話：</p>
+        <p class="text-sm text-gray-500 mt-2">尚未驗證會員，請輸入電話：（需與現場留的電話一致，若不確定歡迎詢問！）</p>
         <input
           id="phone"
           type="tel"
@@ -46,7 +46,7 @@
           onclick="bindMember()"
           disabled
         >
-          綁定會員
+          驗證會員
         </button>
       </div>
 

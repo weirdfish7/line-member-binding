@@ -25,20 +25,24 @@
         </div>
       </div>
 
-      <!-- 尚未綁定 -->
-      <div id="not-bound" class="hidden">
-        <p class="text-lg font-medium text-gray-700">
-          👋 哈囉，<span id="line-name-unbound" class="text-green-600 font-semibold"></span>！
-        </p>
-        <p class="text-sm text-gray-500 mt-2">尚未驗證會員，請輸入電話：（需與現場留的電話一致，若不確定歡迎詢問！）</p>
-        <input
-          id="phone"
-          type="tel"
-          inputmode="numeric"
-          maxlength="20"
-          placeholder="請輸入電話"
-          class="mt-4 px-4 py-2 w-full border rounded-lg focus:ring-2 focus:ring-green-500"
-        />
+     <!-- 尚未綁定 -->
+     <div id="not-bound" class="hidden">
+      <p class="text-lg font-medium text-gray-700">
+        👋 哈囉，<span id="line-name-unbound" class="text-green-600 font-semibold"></span>！
+  </p>
+  <p class="text-sm text-gray-500 mt-2">
+    尚未驗證會員，請輸入電話：
+    <br>
+    <span class="text-red-500">(需與現場留的電話一致，若不確定歡迎詢問！)</span>
+  </p>
+  <input
+    id="phone"
+    type="tel"
+    inputmode="numeric"
+    maxlength="20"
+    placeholder="請輸入電話"
+    class="mt-4 px-4 py-2 w-full border rounded-lg focus:ring-2 focus:ring-green-500"
+  />
         <button
           id="bindBtn"
           class="mt-4 w-full bg-green-600 text-white px-4 py-2 rounded-lg font-semibold disabled:opacity-50"

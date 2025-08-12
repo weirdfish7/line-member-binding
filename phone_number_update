@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>修改電話號碼｜吾家藥局</title>
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- LIFF SDK -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <!-- Supabase JS v2 -->
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+    /* ====== 1) 環境變數（改成你的） ====== */
+    const LIFF_ID            = "YOUR_LIFF_ID";
+    const SUPABASE_URL       = "https://YOUR-PROJECT.supabase.co";
+    const SUPABASE_ANON_KEY  = "YOUR_SUPABASE_ANON_KEY";
+    const REGISTER_URL       = "https://your-register-page.example.com"; // 你既有的綁定頁
+
+    /* ====== 2) Supabase Client ====== */
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    /* ====== 3) 簡易 i18n ====== */
+    const I18N = {
+      "zh": {
+        brand: "吾家藥局 會員驗證",
+        hi: "哈囉，",
+        notMember: "您還不是吾家會員",
+        notMemberDesc: "請先完成會員綁定後再回來修改電話號碼。",
+        goBind: "前往綁定註冊",
+        inputPhone: "請輸入新電話",
+        tip: "（將只保留數字，例：0912345678）",
+        save: "儲存並關閉",
+        saving: "儲存中...",
+        saved: "已更新電話號碼",
+        loadFail: "讀取資料失敗，請稍後再試",
+        emptyPhone: "請輸入新電話",
+        samePhone: "電話未變更",
+        welcome: "會員電話修改",
+        bye: "正在關閉視窗…",
+        currentPhone: "目前電話",
+      },
+      "en": {
+        brand: "Wujia Pharmacy Member",
+        hi: "Hi, ",
+        notMember: "You're not a member yet",
+        notMemberDesc: "Please complete binding/registration before editing your phone number.",
+        goBind: "Go to register",
+        inputPhone: "Enter new phone number",
+        tip: "(Digits only will be saved, e.g. 0912345678)",
+        save: "Save & close",
+        saving: "Saving...",
+        saved: "Phone updated",
+        loadFail: "Failed to load. Please try again.",
+        emptyPhone: "Please enter a phone number",
+        samePhone: "No change",
+        welcome: "Edit Phone Number",
+        bye: "Closing window…",
+        currentPhone: "Current phone",
+      },
+    };
+    const pickLang = () => (navigator.language?.startsWith("zh") ? "zh" : "en");
+
+    /* ====== 4) 小工具 ====== */
+    const $ = (sel) => document.querySelector(sel);
+    const digitsOnly = (v) => (String(v || "").match(/\d+/g) || []).join("");
+
+    /* ====== 5) UI 綁定 ====== */
+    const ui = {
+      card:      () => $("#card"),
+      loading:   () => $("#loading"),
+      errorBox:  () => $("#errorBox"),
+      noti:      () => $("#noti"),
+      nameSpan:  () => $("#lineName"),
+      phoneNow:  () => $("#phoneNow"),
+      phoneInput:() => $("#phoneInput"),
+      saveBtn:   () => $("#saveBtn"),
+      bindBtn:   () => $("#bindBtn"),
+      notMember: () => $("#notMember"),
+      editor:    () => $("#editor"),
+      langBtn:   () => $("#langBtn"),
+      title:     () => $("#title"),
+      subtitle:  () => $("#subtitle"),
+      tip:       () => $("#tip"),
+      lblCurrent:() => $("#lblCurrent"),
+    };
+
+    /* ====== 6) 狀態 ====== */
+    let lang = pickLang();
+    let uid  = "";
+    let displayName = "";
+    let originalPhone = "";
+
+    function applyI18n() {
+      const t = I18N[lang];
+      document.title         = t.welcome + "｜" + t.brand;
+      ui.title().textContent = t.welcome;
+      ui.subtitle().innerHTML = `👋 ${t.hi}<span id="lineName" class="text-green-600 font-semibold"></span>！`;
+      ui.tip().textContent   = t.tip;
+      ui.saveBtn().textContent = t.save;
+      ui.bindBtn().textContent = t.goBind;
+      ui.lblCurrent().textContent = t.currentPhone;
+      ui.langBtn().textContent = lang === "zh" ? "EN" : "中";
+      // not-member card
+      $("#nmTitle").textContent = t.notMember;
+      $("#nmDesc").textContent  = t.notMemberDesc;
+      // placeholders
+      ui.phoneInput().placeholder = t.inputPhone;
+    }
+
+    function setLoading(on) {
+      ui.loading().classList.toggle("hidden", !on);
+      ui.card().classList.toggle("hidden", on);
+    }
+
+    function toast(msg) {
+      const el = ui.noti();
+      el.textContent = msg;
+      el.classList.remove("opacity-0","translate-y-2");
+      setTimeout(() => {
+        el.classList.add("opacity-0","translate-y-2");
+      }, 1800);
+    }
+
+    function setSaveBtnState() {
+      const t = I18N[lang];
+      const v = digitsOnly(ui.phoneInput().value);
+      ui.saveBtn().disabled = !v || v === originalPhone;
+      ui.saveBtn().title = !v ? t.emptyPhone : (v === originalPhone ? t.samePhone : "");
+    }
+
+    /* ====== 7) 初始化流程 ====== */
+    async function main() {
+      applyI18n();
+      ui.langBtn().addEventListener("click", () => {
+        lang = (lang === "zh" ? "en" : "zh");
+        applyI18n();
+        // 填回名字
+        ui.nameSpan().textContent = displayName || "";
+      });
+
+      ui.phoneInput().addEventListener("input", () => {
+        // 僅保留數字，但不強制改變游標體驗：顯示層保留原樣，存檔時再規整
+        setSaveBtnState();
+      });
+
+      ui.bindBtn().addEventListener("click", () => {
+        location.href = REGISTER_URL;
+      });
+
+      ui.saveBtn().addEventListener("click", onSave);
+
+      try {
+        setLoading(true);
+
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        uid = profile.userId;
+        displayName = profile.displayName || "";
+        ui.nameSpan().textContent = displayName;
+
+        // 讀取此 uid 的會員資料
+        const { data, error } = await sb
+          .from("users")
+          .select("id, uid, display_name, phone")
+          .eq("uid", uid)
+          .maybeSingle();
+
+        if (error) {
+          console.error(error);
+          throw error;
+        }
+
+        const t = I18N[lang];
+
+        if (!data || !data.phone) {
+          // 非會員或尚未綁定電話
+          $("#nmCard").classList.remove("hidden");
+          ui.editor().classList.add("hidden");
+        } else {
+          // 已有會員資料 → 顯示編輯
+          $("#nmCard").classList.add("hidden");
+          ui.editor().classList.remove("hidden");
+
+          originalPhone = digitsOnly(data.phone);
+          ui.phoneNow().textContent = originalPhone || "-";
+          ui.phoneInput().value = originalPhone;
+          setSaveBtnState();
+        }
+      } catch (e) {
+        console.error(e);
+        ui.errorBox().classList.remove("hidden");
+        ui.errorBox().textContent = I18N[lang].loadFail;
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    /* ====== 8) 送出更新 ====== */
+    async function onSave() {
+      const t = I18N[lang];
+      const raw = ui.phoneInput().value;
+      const phone = digitsOnly(raw);
+
+      if (!phone) {
+        toast(t.emptyPhone);
+        return;
+      }
+      if (phone === originalPhone) {
+        toast(t.samePhone);
+        return;
+      }
+
+      ui.saveBtn().disabled = true;
+      ui.saveBtn().textContent = t.saving;
+
+      try {
+        const { error } = await sb
+          .from("users")
+          .update({ phone })
+          .eq("uid", uid);
+
+        if (error) throw error;
+
+        toast(t.saved);
+        // 稍待一下以便使用者看到通知，再關閉 LIFF
+        setTimeout(() => {
+          $("#closing").classList.remove("hidden");
+          $("#closingMsg").textContent = t.bye;
+          liff.closeWindow();
+        }, 600);
+      } catch (e) {
+        console.error(e);
+        toast("Error: " + (e?.message || "update failed"));
+      } finally {
+        ui.saveBtn().textContent = t.save;
+        setSaveBtnState();
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", main);
+  </script>
+</head>
+
+<body class="bg-gray-50 min-h-screen flex items-start justify-center">
+  <!-- 通知 -->
+  <div id="noti"
+       class="fixed top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/80 text-white text-sm rounded-lg transition-all duration-300 opacity-0 translate-y-2 z-50">
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" class="mt-24 text-gray-500 text-sm hidden">
+    <svg class="animate-spin h-6 w-6 mx-auto mb-4" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+    </svg>
+    Loading...
+  </div>
+
+  <!-- Card -->
+  <div id="card" class="w-full max-w-md mx-4 mt-10 mb-16">
+    <div class="bg-white shadow-xl rounded-3xl p-6 md:p-7">
+      <div class="flex items-center justify-between mb-2">
+        <h1 id="title" class="text-2xl md:text-3xl font-extrabold tracking-tight text-gray-800">會員電話修改</h1>
+        <button id="langBtn" class="text-gray-400 hover:text-gray-700 text-sm px-2 py-1 rounded-md border border-gray-200">EN</button>
+      </div>
+
+      <p id="subtitle" class="text-gray-700 mt-1">
+        👋 哈囉，<span id="lineName" class="text-green-600 font-semibold"></span>！
+      </p>
+
+      <p class="text-xs text-red-500 mt-2" id="tip">（將只保留數字，例：0912345678）</p>
+
+      <!-- 未綁定提醒 -->
+      <div id="nmCard" class="mt-6 hidden">
+        <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div class="font-semibold text-amber-800 text-lg" id="nmTitle">您還不是吾家會員</div>
+          <div class="text-amber-700 text-sm mt-1" id="nmDesc">
+            請先完成會員綁定後再回來修改電話號碼。
+          </div>
+          <button id="bindBtn"
+            class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold py-3">
+            前往綁定註冊
+          </button>
+        </div>
+      </div>
+
+      <!-- 編輯區 -->
+      <div id="editor" class="mt-6">
+        <label class="block text-sm text-gray-500 mb-1" id="lblCurrent">目前電話</label>
+        <div class="px-3 py-2 bg-gray-50 border rounded-xl text-gray-700" id="phoneNow">-</div>
+
+        <div class="mt-4">
+          <input id="phoneInput" type="tel" inputmode="numeric" maxlength="20"
+                 placeholder="請輸入新電話"
+                 class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none" />
+        </div>
+
+        <button id="saveBtn"
+          class="mt-6 w-full bg-green-600 disabled:opacity-40 hover:bg-green-700 text-white rounded-xl font-semibold py-3"
+          disabled>儲存並關閉</button>
+      </div>
+
+      <div id="closing" class="hidden text-center text-gray-500 text-sm mt-4">
+        <span id="closingMsg">正在關閉視窗…</span>
+      </div>
+
+      <div id="errorBox" class="hidden mt-4 text-sm text-red-600"></div>
+    </div>
+  </div>
+</body>
+</html>

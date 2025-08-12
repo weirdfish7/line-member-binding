@@ -24,7 +24,7 @@
     /* ====== 3) 簡易 i18n ====== */
     const I18N = {
       "zh": {
-        brand: "吾家藥局 會員驗證",
+        brand: "吾家藥局",
         hi: "哈囉，",
         notMember: "您還不是吾家會員",
         notMemberDesc: "請先完成會員綁定後再回來修改電話號碼。",
@@ -190,7 +190,7 @@
 
           originalPhone = digitsOnly(data.phone);
           ui.phoneNow().textContent = originalPhone || "-";
-          ui.phoneInput().value = originalPhone;
+          ui.phoneInput().value = ""; // 不預填舊號碼
           setSaveBtnState();
         }
       } catch (e) {

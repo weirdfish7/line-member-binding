@@ -41,7 +41,7 @@
 
 <script>
 const API = '/api/rx-list';
-const LIFF_ID = '2007763002-m2PaWbWe';  // 直接填你的 LIFF ID
+const LIFF_ID = '2007763002-m2PaWbWe';  // 保留你的 LIFF ID
 
 function fmtDate(s){
   if(!s) return '-';
@@ -76,47 +76,76 @@ function renderGroups(groups){
       </div>
     </section>
   `).join('');
-
   Array.from(list.querySelectorAll('section > button')).forEach(btn=>{
     const panel = btn.nextElementSibling;
     btn.addEventListener('click', ()=> panel.classList.toggle('hidden'));
   });
 }
 
+function showError(msg){
+  const err=document.getElementById('errorBox');
+  err.textContent = msg || '發生錯誤';
+  err.classList.remove('hidden');
+}
+
+async function getIdTokenEnsured(){
+  // 已登入但舊會話沒有 openid scope 時，getIDToken() 可能回 null
+  if (!liff.isLoggedIn()) {
+    await liff.login({ scope:['openid','profile'] });
+  }
+  let idToken = liff.getIDToken();
+  if (!idToken) {
+    // 強制要求使用者重新授權 openid
+    await liff.login({ scope:['openid','profile'], prompt:'consent' });
+    idToken = liff.getIDToken();
+  }
+  return idToken;
+}
+
 async function fetchData(){
-  const loading=document.getElementById('loading'), empty=document.getElementById('empty'), err=document.getElementById('errorBox');
-  loading.classList.remove('hidden'); empty.classList.add('hidden'); err.classList.add('hidden');
+  const loading=document.getElementById('loading'), empty=document.getElementById('empty');
+  document.getElementById('errorBox').classList.add('hidden');
+  loading.classList.remove('hidden'); empty.classList.add('hidden');
+
   try{
-    if(!liff.isLoggedIn()) await liff.login({ scope:['openid','profile'] });
-    const idToken = liff.getIDToken();
-    const r = await fetch(API, {
+    const idToken = await getIdTokenEnsured();
+    if (!idToken) {
+      showError('取得 id_token 失敗，請關閉重開或在 LIFF 設定勾選 openid/profile。');
+      return;
+    }
+
+    const r = await fetch(API,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ id_token: idToken })
     });
     const data = await r.json();
-    if(!r.ok) throw new Error(data.error || '查詢失敗');
 
-    if(!data.groups?.length){
+    if (!r.ok) {
+      // 後端現在會回 { error, detail, hint }，把 detail 帶出來
+      const msg = [data.error, data.detail].filter(Boolean).join(': ');
+      throw new Error(msg || '查詢失敗');
+    }
+
+    if (!data.groups?.length){
       empty.classList.remove('hidden');
-      document.getElementById('list').innerHTML='';
-    }else{
+      document.getElementById('list').innerHTML = '';
+    } else {
       renderGroups(data.groups);
     }
-  }catch(e){
-    err.textContent = e.message || '發生錯誤';
-    err.classList.remove('hidden');
-  }finally{
+  } catch(e){
+    showError(e.message || '發生錯誤');
+  } finally {
     loading.classList.add('hidden');
   }
 }
 
 async function main(){
   await liff.init({ liffId: LIFF_ID });
-  try{
+  try {
     const p = await liff.getProfile();
     document.getElementById('welcome').innerHTML = `👋 哈囉，<span class="text-green-600 font-semibold">${p.displayName}</span>`;
-  }catch{}
+  } catch {}
   document.getElementById('toProfile').href = `https://liff.line.me/${LIFF_ID}?path=profile`;
   await fetchData();
 }
@@ -124,5 +153,6 @@ document.getElementById('refreshBtn').addEventListener('click', fetchData);
 document.getElementById('closeBtn').addEventListener('click', ()=>{ if(liff.isInClient()) liff.closeWindow(); else window.close(); });
 main();
 </script>
+
 </body>
 </html>

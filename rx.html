@@ -41,65 +41,50 @@
 
 <script>
 const API = '/api/rx-list';
-const LIFF_ID = '2007763002-m2PaWbWe';  // 保留你的 LIFF ID
+const LIFF_ID = '2007763002-m2PaWbWe';  // 你的
 
-function fmtDate(s){
-  if(!s) return '-';
-  const d = new Date(s);
-  if(Number.isNaN(d.getTime())) return s;
-  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${day}`;
-}
+function fmtDate(s){ if(!s) return '-'; const d=new Date(s); if(Number.isNaN(d.getTime())) return s;
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
 function chip(v){ return `<span class="inline-block px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold">${v ?? '-'}</span>`; }
 
-function row(it){
-  return `
-    <div class="grid grid-cols-2 gap-2 text-sm py-2 border-b last:border-b-0 border-gray-100">
-      <div class="text-gray-500">處方日期</div><div class="text-gray-800">${fmtDate(it.rcp_date)}</div>
-      <div class="text-gray-500">調劑日期</div><div class="text-gray-800">${fmtDate(it.pre_date)}</div>
-      <div class="text-gray-500">可領次數</div><div class="text-gray-800">${chip(it.linkcan)}</div>
-      <div class="text-gray-500">本次</div><div class="text-gray-800">${chip(it.linkno)}</div>
-    </div>
-  `;
-}
+function row(it){ return `
+  <div class="grid grid-cols-2 gap-2 text-sm py-2 border-b last:border-b-0 border-gray-100">
+    <div class="text-gray-500">處方日期</div><div class="text-gray-800">${fmtDate(it.rcp_date)}</div>
+    <div class="text-gray-500">調劑日期</div><div class="text-gray-800">${fmtDate(it.pre_date)}</div>
+    <div class="text-gray-500">可領次數</div><div class="text-gray-800">${chip(it.linkcan)}</div>
+    <div class="text-gray-500">本次</div><div class="text-gray-800">${chip(it.linkno)}</div>
+  </div>`; }
 
 function renderGroups(groups){
-  const list = document.getElementById('list');
-  list.innerHTML = groups.map(g => `
+  const list=document.getElementById('list');
+  list.innerHTML = groups.map(g=>`
     <section class="bg-white rounded-2xl shadow overflow-hidden">
       <button class="w-full text-left px-4 py-3 flex items-center justify-between bg-gray-50">
         <div class="font-semibold text-gray-800">👤 ${g.name}</div>
         <div class="text-xs text-gray-500">${g.records.length} 筆</div>
       </button>
-      <div class="px-4 pb-3 hidden">
-        ${g.records.map(row).join('')}
-      </div>
-    </section>
-  `).join('');
+      <div class="px-4 pb-3 hidden">${g.records.map(row).join('')}</div>
+    </section>`).join('');
   Array.from(list.querySelectorAll('section > button')).forEach(btn=>{
-    const panel = btn.nextElementSibling;
-    btn.addEventListener('click', ()=> panel.classList.toggle('hidden'));
+    const panel=btn.nextElementSibling; btn.addEventListener('click', ()=>panel.classList.toggle('hidden'));
   });
 }
 
-function showError(msg){
-  const err=document.getElementById('errorBox');
-  err.textContent = msg || '發生錯誤';
-  err.classList.remove('hidden');
-}
+function showError(msg){ const box=document.getElementById('errorBox'); box.textContent=msg||'發生錯誤'; box.classList.remove('hidden'); }
+
+function isJwt(s){ return /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(s||''); }
 
 async function getIdTokenEnsured(){
-  // 已登入但舊會話沒有 openid scope 時，getIDToken() 可能回 null
-  if (!liff.isLoggedIn()) {
-    await liff.login({ scope:['openid','profile'] });
-  }
-  let idToken = liff.getIDToken();
-  if (!idToken) {
-    // 強制要求使用者重新授權 openid
+  // 1) 沒登入就以 openid/profile 登入
+  if (!liff.isLoggedIn()) await liff.login({ scope:['openid','profile'] });
+  // 2) 先拿一次
+  let t = liff.getIDToken();
+  // 3) 還不是 JWT → 強制重新授權
+  if (!isJwt(t)) {
     await liff.login({ scope:['openid','profile'], prompt:'consent' });
-    idToken = liff.getIDToken();
+    t = liff.getIDToken();
   }
-  return idToken;
+  return t;
 }
 
 async function fetchData(){
@@ -109,44 +94,27 @@ async function fetchData(){
 
   try{
     const idToken = await getIdTokenEnsured();
-    if (!idToken) {
-      showError('取得 id_token 失敗，請關閉重開或在 LIFF 設定勾選 openid/profile。');
-      return;
-    }
+    if (!isJwt(idToken)) { showError('取得 id_token 失敗（不是 JWT）。請確認 LIFF scopes 有 openid/profile。'); return; }
 
-    const r = await fetch(API,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ id_token: idToken })
-    });
+    const r = await fetch(API,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id_token: idToken }) });
     const data = await r.json();
 
     if (!r.ok) {
-      // 後端現在會回 { error, detail, hint }，把 detail 帶出來
-      const msg = [data.error, data.detail].filter(Boolean).join(': ');
-      throw new Error(msg || '查詢失敗');
+      // 後端會回 { error, detail, hint }
+      const msg = [data.error, data.detail].filter(Boolean).join(': ') || '查詢失敗';
+      throw new Error(msg);
     }
 
-    if (!data.groups?.length){
-      empty.classList.remove('hidden');
-      document.getElementById('list').innerHTML = '';
-    } else {
-      renderGroups(data.groups);
-    }
-  } catch(e){
-    showError(e.message || '發生錯誤');
-  } finally {
-    loading.classList.add('hidden');
-  }
+    if (!data.groups?.length){ empty.classList.remove('hidden'); document.getElementById('list').innerHTML=''; }
+    else { renderGroups(data.groups); }
+  }catch(e){ showError(e.message||'發生錯誤'); }
+  finally{ loading.classList.add('hidden'); }
 }
 
 async function main(){
   await liff.init({ liffId: LIFF_ID });
-  try {
-    const p = await liff.getProfile();
-    document.getElementById('welcome').innerHTML = `👋 哈囉，<span class="text-green-600 font-semibold">${p.displayName}</span>`;
-  } catch {}
-  document.getElementById('toProfile').href = `https://liff.line.me/${LIFF_ID}?path=profile`;
+  try{ const p=await liff.getProfile(); document.getElementById('welcome').innerHTML=`👋 哈囉，<span class="text-green-600 font-semibold">${p.displayName}</span>`; }catch{}
+  document.getElementById('toProfile')?.setAttribute('href', `https://liff.line.me/${LIFF_ID}?path=profile`);
   await fetchData();
 }
 document.getElementById('refreshBtn').addEventListener('click', fetchData);

@@ -77,37 +77,57 @@
 
     let profile;
 
-    async function init() {
-      try {
-        await liff.init({ liffId: LIFF_ID });
-        if (!liff.isLoggedIn()) {
-          liff.login();
-          return;
-        }
+    async function syncRichMenu() {
+  try {
+    await fetch('/api/sync-richmenu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id_token: liff.getIDToken() || null,
+        access_token: liff.getAccessToken() || null
+      })
+    });
+  } catch (e) {
+    console.warn('sync-richmenu failed', e);
+  }
+}
 
-        profile = await liff.getProfile();
-        document.getElementById("line-name").textContent = profile.displayName;
-        document.getElementById("line-name-unbound").textContent = profile.displayName;
-
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/users?uid=eq.${profile.userId}`, {
-          headers: SUPABASE_HEADERS
-        });
-        const users = await res.json();
-
-        document.getElementById("loading").style.display = "none";
-        document.getElementById("main").classList.remove("hidden");
-
-        if (users.length > 0 && users[0].phone) {
-          document.getElementById("bound").classList.remove("hidden");
-          document.getElementById("bound-phone").textContent = users[0].phone || '';
-        } else {
-          document.getElementById("not-bound").classList.remove("hidden");
-        }
-      } catch (err) {
-        console.error("初始化或查詢錯誤", err);
-        document.getElementById("loading").textContent = "查詢失敗，請稍後重試";
-      }
+async function init() {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) {
+      // ✅ 一定要帶 openid/profile，之後才拿得到 id_token
+      liff.login({ scope: ['openid', 'profile'] });
+      return; // 會跳轉；下面不會執行
     }
+
+    profile = await liff.getProfile();
+    document.getElementById("line-name").textContent = profile.displayName;
+    document.getElementById("line-name-unbound").textContent = profile.displayName;
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/users?uid=eq.${profile.userId}`, {
+      headers: SUPABASE_HEADERS
+    });
+    const users = await res.json();
+
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("main").classList.remove("hidden");
+
+    if (users.length > 0 && users[0].phone) {
+      document.getElementById("bound").classList.remove("hidden");
+      document.getElementById("bound-phone").textContent = users[0].phone || '';
+    } else {
+      document.getElementById("not-bound").classList.remove("hidden");
+    }
+
+    // ✅ 載入完成後保險同步一次（API 會依 DB 狀態自動 link 或 unlink）
+    await syncRichMenu();
+
+  } catch (err) {
+    console.error("初始化或查詢錯誤", err);
+    document.getElementById("loading").textContent = "查詢失敗，請稍後重試";
+  }
+}
 
 async function bindMember() {
   const phone = document.getElementById("phone").value.trim();
@@ -118,8 +138,7 @@ async function bindMember() {
     phone: phone
   }];
 
-  // Upsert: 用 uid 做唯一比對，有就更新（會覆蓋現有欄位），沒有就新增
-  await fetch(`${SUPABASE_URL}/rest/v1/users?on_conflict=uid`, {
+  const upsertRes = await fetch(`${SUPABASE_URL}/rest/v1/users?on_conflict=uid`, {
     method: "POST",
     headers: {
       ...SUPABASE_HEADERS,
@@ -128,17 +147,15 @@ async function bindMember() {
     body: JSON.stringify(payload)
   });
 
-  // 呼叫後端 API 切換 Rich Menu
-  const result = await fetch("/api/setRichmenu", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ uid: profile.userId })
-  });
+  if (!upsertRes.ok) {
+    const errText = await upsertRes.text().catch(()=>'');
+    console.error("upsert error:", errText);
+    alert("綁定失敗，請稍後再試");
+    return;
+  }
 
-  const data = await result.json();
-  console.log("RichMenu switch:", data);
+  // ✅ 寫入成功 → 立刻同步 Rich Menu（會 link 成會員選單）
+  await syncRichMenu();
 
   // UI 切換顯示
   document.getElementById("not-bound").classList.add("hidden");
@@ -146,21 +163,21 @@ async function bindMember() {
   document.getElementById("bound-phone").textContent = phone;
 }
 
+function closeWindow() {
+  liff.closeWindow();
+}
 
-    function closeWindow() {
-      liff.closeWindow();
-    }
+document.addEventListener("DOMContentLoaded", () => {
+  const phoneInput = document.getElementById("phone");
+  const bindBtn = document.getElementById("bindBtn");
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const phoneInput = document.getElementById("phone");
-      const bindBtn = document.getElementById("bindBtn");
+  phoneInput?.addEventListener("input", () => {
+    bindBtn.disabled = phoneInput.value.trim().length === 0;
+  });
 
-      phoneInput?.addEventListener("input", () => {
-        bindBtn.disabled = phoneInput.value.trim().length === 0;
-      });
+  init();
+});
 
-      init();
-    });
   </script>
 </body>
 </html>

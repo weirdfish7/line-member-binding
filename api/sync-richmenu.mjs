@@ -5,28 +5,45 @@ const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_R
 const isJwt = s => /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(s||'');
 
 async function resolveUid({ id_token, access_token, clientId }) {
+  // 先試 id_token（JWT）
   if (isJwt(id_token)) {
-    const r = await fetch('https://api.line.me/oauth2/v2.1/verify', {
-      method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:new URLSearchParams({ id_token, client_id: clientId })
-    });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error_description || j.error || 'id_token verify failed');
-    return j.sub;
+    try {
+      const r = await fetch('https://api.line.me/oauth2/v2.1/verify', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ id_token, client_id: clientId })
+      });
+      const j = await r.json();
+      if (r.ok) return j.sub; // 驗證成功 → 直接回 userId
+
+      const msg = String(j.error_description || j.error || '').toLowerCase();
+      // 若過期且手上有 access_token，就往下走用 access_token 取 userId
+      if (!(msg.includes('expire') || msg.includes('expired')) || !access_token) {
+        throw new Error(j.error_description || j.error || 'id_token verify failed');
+      }
+      // else: fall through to access_token path
+    } catch (e) {
+      if (!access_token) throw e; // 沒備援就丟出
+      // 有 access_token → 繼續走下面路徑
+    }
   }
+
+  // 再試 access_token 路徑
   if (access_token) {
     const v = await fetch(`https://api.line.me/oauth2/v2.1/verify?access_token=${encodeURIComponent(access_token)}`);
     const jv = await v.json();
     if (!v.ok) throw new Error(jv.error_description || jv.error || 'access_token verify failed');
-    if (String(jv.client_id) !== String(process.env.LINE_CHANNEL_ID)) {
-      throw new Error(`access_token audience mismatch: got ${jv.client_id}, expect ${process.env.LINE_CHANNEL_ID}`);
+    if (String(jv.client_id) !== String(clientId)) {
+      throw new Error(`access_token audience mismatch: got ${jv.client_id}, expect ${clientId}`);
     }
-    const pr = await fetch('https://api.line.me/v2/profile', { headers:{ Authorization:`Bearer ${access_token}` } });
+    const pr = await fetch('https://api.line.me/v2/profile', {
+      headers:{ Authorization:`Bearer ${access_token}` }
+    });
     const jp = await pr.json();
     if (!pr.ok || !jp.userId) throw new Error(jp.message || 'profile fetch failed');
     return jp.userId;
   }
+
   throw new Error('no_valid_token');
 }
 

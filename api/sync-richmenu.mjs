@@ -5,29 +5,27 @@ const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_R
 const isJwt = s => /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(s||'');
 
 async function resolveUid({ id_token, access_token, clientId }) {
-  // 路線 A：id_token（JWT）
   if (isJwt(id_token)) {
     const r = await fetch('https://api.line.me/oauth2/v2.1/verify', {
       method:'POST',
-      headers:{ 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ id_token, client_id: clientId })
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:new URLSearchParams({ id_token, client_id: clientId })
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error_description || j.error || 'id_token verify failed');
-    return j.sub; // "U..." userId
+    return j.sub;
   }
-  // 路線 B：access_token
   if (access_token) {
     const v = await fetch(`https://api.line.me/oauth2/v2.1/verify?access_token=${encodeURIComponent(access_token)}`);
-    const j = await v.json();
-    if (!v.ok) throw new Error(j.error_description || j.error || 'access_token verify failed');
-    if (String(j.client_id) !== String(clientId)) {
-      throw new Error(`access_token audience mismatch: got ${j.client_id}, expect ${clientId}`);
+    const jv = await v.json();
+    if (!v.ok) throw new Error(jv.error_description || jv.error || 'access_token verify failed');
+    if (String(jv.client_id) !== String(process.env.LINE_CHANNEL_ID)) {
+      throw new Error(`access_token audience mismatch: got ${jv.client_id}, expect ${process.env.LINE_CHANNEL_ID}`);
     }
-    const pr = await fetch('https://api.line.me/v2/profile', { headers: { Authorization: `Bearer ${access_token}` } });
-    const p = await pr.json();
-    if (!pr.ok || !p.userId) throw new Error(p.message || 'profile fetch failed');
-    return p.userId; // "U..." userId
+    const pr = await fetch('https://api.line.me/v2/profile', { headers:{ Authorization:`Bearer ${access_token}` } });
+    const jp = await pr.json();
+    if (!pr.ok || !jp.userId) throw new Error(jp.message || 'profile fetch failed');
+    return jp.userId;
   }
   throw new Error('no_valid_token');
 }
@@ -35,49 +33,54 @@ async function resolveUid({ id_token, access_token, clientId }) {
 async function link(uid){
   const r = await fetch(`https://api.line.me/v2/bot/user/${uid}/richmenu/${process.env.MEMBER_MENU_ID}`, {
     method:'POST',
-    headers:{ Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` }
+    headers:{ Authorization:`Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` }
   });
-  if (!r.ok) throw new Error(`link_failed ${r.status} ${await r.text()}`);
+  const t = await r.text();
+  if (!r.ok) throw new Error(`link_failed ${r.status} ${t}`);
+  return { status:r.status, body:t };
 }
 
 async function unlink(uid){
   const r = await fetch(`https://api.line.me/v2/bot/user/${uid}/richmenu`, {
     method:'DELETE',
-    headers:{ Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` }
+    headers:{ Authorization:`Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` }
   });
-  if (!r.ok && r.status !== 404) throw new Error(`unlink_failed ${r.status} ${await r.text()}`);
+  const t = await r.text();
+  if (!r.ok && r.status !== 404) throw new Error(`unlink_failed ${r.status} ${t}`);
+  return { status:r.status, body:t };
 }
 
-export default async function handler(req, res) {
-  try {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-    if (!process.env.MEMBER_MENU_ID || !process.env.LINE_CHANNEL_ACCESS_TOKEN || !process.env.LINE_CHANNEL_ID) {
-      return res.status(500).json({ error: 'Missing env: MEMBER_MENU_ID / LINE_CHANNEL_ACCESS_TOKEN / LINE_CHANNEL_ID' });
-    }
+export default async function handler(req,res){
+  const DEBUG = req.query.debug === '1' || req.headers['x-debug'] === '1';
+  const dbg = {};
+  try{
+    if (req.method!=='POST') return res.status(405).json({ error:'Method not allowed' });
 
-    // 1) 解析使用者 uid
+    // 1) 解析當前使用者
     const { id_token, access_token } = req.body || {};
     const uid = await resolveUid({ id_token, access_token, clientId: process.env.LINE_CHANNEL_ID });
+    dbg.uid = uid;
 
-    // 2) 決定是否已綁定（你可以依自己規則調整）
-    const { data: user, error } = await sb.from('users')
+    // 2) 取 DB 狀態
+    const { data:user, error } = await sb.from('users')
       .select('uid, phone, is_bound')
       .eq('uid', uid)
       .maybeSingle();
     if (error) throw error;
+    dbg.userRow = user || null;
 
-    const bound = !!(user?.uid && String(user?.phone || '').trim()); // or (user?.is_bound === true)
+    // 綁定條件：is_bound === true 或（有 uid 且 phone 非空白）
+    const phoneOk = !!String(user?.phone ?? '').trim();
+    const bound = (user?.is_bound === true) || (!!user?.uid && phoneOk);
+    dbg.bound = bound; dbg.phoneOk = phoneOk;
 
-    // 3) link/unlink
-    if (bound) {
-      await link(uid);
-      return res.status(200).json({ ok:true, action:'link', uid });
-    } else {
-      await unlink(uid);
-      return res.status(200).json({ ok:true, action:'unlink', uid });
-    }
-  } catch (e) {
-    console.error('[sync-richmenu]', e);
-    return res.status(500).json({ error: e.message || String(e) });
+    // 3) link / unlink
+    let action, api;
+    if (bound) { action = 'link'; api = await link(uid); }
+    else       { action = 'unlink'; api = await unlink(uid); }
+
+    return res.status(200).json({ ok:true, action, uid, debug: DEBUG ? { ...dbg, api } : undefined });
+  }catch(e){
+    return res.status(500).json({ error:e.message || String(e), debug: DEBUG ? dbg : undefined });
   }
 }

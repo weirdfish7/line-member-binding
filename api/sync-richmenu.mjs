@@ -4,9 +4,9 @@ import { createClient } from '@supabase/supabase-js';
 // --- ENV & clients ----------------------------------------------------------
 const SUPABASE_URL  = (process.env.SUPABASE_URL || '').trim();
 const SRV_KEY       = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-const LOGIN_CH_ID   = (process.env.LINE_CHANNEL_ID || '').trim();              // LINE Login 的 Channel ID（用來驗證 token audience）
-const BOT_TOKEN     = (process.env.LINE_CHANNEL_ACCESS_TOKEN || '').trim();    // Messaging API 的 Channel access token
-const MEMBER_MENUID = (process.env.MEMBER_MENU_ID || '').trim();               // 會員選單的 richMenuId
+const LOGIN_CH_ID   = (process.env.LINE_CHANNEL_ID || '').trim();
+const BOT_TOKEN     = (process.env.LINE_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_TOKEN || '').trim();
+const MEMBER_MENUID = (process.env.MEMBER_MENU_ID || process.env.LINE_RICHMENU_ID || '').trim();
 
 const sb = createClient(SUPABASE_URL, SRV_KEY);
 const isJwt = s => /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(s || '');

@@ -10,20 +10,25 @@
 </head>
 <body class="bg-gray-50">
   <div class="max-w-md mx-auto p-4">
+    <!-- Header -->
     <header class="text-center my-6">
-      <h1 class="text-2xl font-bold">處方查詢</h1>
-      <p id="welcome" class="text-gray-500 mt-1"></p>
+      <h1 class="text-3xl font-extrabold tracking-tight text-gray-900">處方查詢</h1>
+      <p id="welcome" class="text-gray-500 mt-2"></p>
     </header>
 
+    <!-- Actions -->
     <div class="flex items-center gap-2 mb-4">
       <button id="refreshBtn" class="flex-1 rounded-xl px-4 py-3 bg-green-600 text-white font-semibold shadow hover:opacity-90">重新整理</button>
+      <button id="toggleAllBtn" class="rounded-xl px-4 py-3 bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">收合全部</button>
       <button id="closeBtn" class="rounded-xl px-4 py-3 bg-gray-200 text-gray-700 font-medium">關閉視窗</button>
     </div>
 
+    <!-- Loading -->
     <div id="loading" class="rounded-2xl bg-white shadow p-6 flex items-center justify-center">
       <div class="animate-pulse text-gray-400">載入中⋯</div>
     </div>
 
+    <!-- Empty -->
     <div id="empty" class="hidden rounded-2xl bg-white shadow p-6 text-center">
       <div class="text-3xl mb-2">🔍</div>
       <p class="text-gray-700 font-medium">尚未找到處方資料</p>
@@ -31,8 +36,11 @@
       <a id="toProfile" class="inline-block mt-4 text-green-600 font-semibold underline">前往修改電話</a>
     </div>
 
+    <!-- Error -->
     <div id="errorBox" class="hidden rounded-2xl bg-red-50 border border-red-200 p-4 text-red-700"></div>
-    <div id="list" class="space-y-3"></div>
+
+    <!-- List -->
+    <div id="list" class="space-y-4"></div>
 
     <footer class="text-center text-xs text-gray-400 mt-8 mb-6">
       僅顯示：姓名、處方日期、領藥日期、可領次數、本次
@@ -40,91 +48,146 @@
   </div>
 
 <script>
-/* ===== 基本設定 ===== */
+/* ====== Config ====== */
 const API = '/api/rx-list';
-const LIFF_ID = '2007763002-m2PaWbWe';  // 你的
+const LIFF_ID = '2007763002-m2PaWbWe';
 
-/* ===== 小工具 ===== */
-// 只保留中文字（去掉符號與英數）
-function zhOnly(s) {
-  return (String(s || '').match(/[\u4E00-\u9FFF]+/g) || []).join('') || '';
-}
+/* ====== Utils ====== */
+function zhOnly(s){ return String(s || '').replace(/[^\u4E00-\u9FFF]/g, ''); }
 function fmtDate(s){
-  if(!s) return '-';
+  if (!s) return '-';
   const d = new Date(s);
-  if(Number.isNaN(d.getTime())) return s;
+  if (Number.isNaN(d.getTime())) return s;
   const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  const day = String(d.getDate()).padStart(2,'0');
+  const m = String(d.getMonth()+1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
-const safeNum = v => (v === 0 || v) ? String(v) : '-';
-
-/* 單筆明細列：第一行以「開立／領藥」並排，第二行彙整本次/可領次數 */
-function row(it){
-  return `
-    <div class="px-4 py-3 border-t border-gray-100">
-      <div class="text-[15px] text-gray-900 font-medium">
-        開立 ${fmtDate(it.rcp_date)} ・ 領藥 ${fmtDate(it.pre_date)}
-      </div>
-      <div class="mt-1 text-[13px] text-gray-600">
-        －本次領藥 第${safeNum(it.linkno)}次 / 可領次數 共${safeNum(it.linkcan)}次
-      </div>
-    </div>`;
-}
-
-/* 群組渲染：同名內排序（rcp_date 先到後 → pre_date 先到後） */
-function renderGroups(groups){
-  const list = document.getElementById('list');
-  list.innerHTML = (groups || []).map(g=>{
-    const name = zhOnly(g.name) || '未填姓名';
-    const recs = [...(g.records || [])].sort((a,b)=>{
-      const ar = new Date(a.rcp_date || 0), br = new Date(b.rcp_date || 0);
-      if (ar - br !== 0) return ar - br;
-      const ap = new Date(a.pre_date || 0), bp = new Date(b.pre_date || 0);
-      return ap - bp;
-    });
-    return `
-      <section class="bg-white rounded-2xl shadow overflow-hidden">
-        <button class="w-full text-left px-4 py-3 flex items-center justify-between bg-gray-50">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-700">👤</div>
-            <div>
-              <div class="text-base font-semibold text-gray-900">${name}</div>
-              <div class="text-xs text-gray-500">${recs.length} 筆</div>
-            </div>
-          </div>
-          <div class="text-gray-400">⌄</div>
-        </button>
-        <div class="pb-2 hidden">
-          ${recs.map(row).join('')}
-        </div>
-      </section>`;
-  }).join('');
-
-  // 綁定展開/收合
-  Array.from(list.querySelectorAll('section > button')).forEach(btn=>{
-    const panel = btn.nextElementSibling;
-    btn.addEventListener('click', ()=> panel.classList.toggle('hidden'));
-  });
-}
-
+function isJwt(s){ return /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(s||''); }
 function showError(msg){
   const box = document.getElementById('errorBox');
   box.textContent = msg || '發生錯誤';
   box.classList.remove('hidden');
 }
 
-function isJwt(s){
-  return /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(s||'');
+/* ====== Person + Record UI ====== */
+function recordItem(rec){
+  // Timeline dot on the left + card content
+  return `
+    <div class="relative pl-6">
+      <span class="absolute left-0 top-4 w-2 h-2 rounded-full bg-emerald-500"></span>
+      <div class="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
+        <div class="text-gray-900 font-semibold">
+          開立 ${fmtDate(rec.rcp_date)} ・ 領藥 ${fmtDate(rec.pre_date)}
+        </div>
+        <div class="text-gray-500 mt-1">
+          — 本次領藥 <span class="text-emerald-700 font-semibold">第${rec.linkno ?? '-' }次</span>
+          <span class="text-gray-300 px-1">/</span>
+          可領次數 <span class="text-blue-700 font-semibold">共${rec.linkcan ?? '-' }次</span>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
+function personCard(g, index){
+  const safeName = zhOnly(g.name) || '未填姓名';
+  // 排序：先 rcp_date（由早到晚），再 pre_date（由早到晚）
+  const sorted = [...(g.records || [])].sort((a, b) => {
+    const ar = new Date(a.rcp_date).getTime() || 0;
+    const br = new Date(b.rcp_date).getTime() || 0;
+    if (ar !== br) return ar - br;
+    const ap = new Date(a.pre_date).getTime() || 0;
+    const bp = new Date(b.pre_date).getTime() || 0;
+    return ap - bp;
+  });
+
+  // 預設展開
+  const openAttr = 'data-open="1"';
+  return `
+    <section class="bg-white rounded-2xl shadow overflow-hidden" ${openAttr} id="sec-${index}">
+      <!-- Header -->
+      <button class="w-full text-left px-4 py-3 flex items-center justify-between bg-gray-50 group" data-role="toggle">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-700 grid place-items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4S14.21 4 12 4 8 5.79 8 8s1.79 4 4 4Zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4Z"/></svg>
+          </div>
+          <div>
+            <div class="font-bold text-gray-900 text-lg">${safeName}</div>
+            <div class="text-xs text-gray-500">共 ${sorted.length} 筆</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1 text-xs font-semibold" data-role="pill">收合</span>
+          <svg data-role="chev" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+        </div>
+      </button>
+
+      <!-- Timeline list -->
+      <div class="px-4 py-3">
+        <div class="relative pl-3 border-l-2 border-gray-100" data-role="list">
+          ${sorted.map(recordItem).join('')}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+/* ====== Render ====== */
+function renderGroups(groups){
+  const list = document.getElementById('list');
+  list.innerHTML = groups.map(personCard).join('');
+
+  // 綁定每個 section 的展開/收合
+  list.querySelectorAll('section').forEach(sec => {
+    const btn = sec.querySelector('[data-role="toggle"]');
+    const listEl = sec.querySelector('[data-role="list"]');
+    const pill = sec.querySelector('[data-role="pill"]');
+    const chev = sec.querySelector('[data-role="chev"]');
+
+    function updateUI(){
+      const isOpen = sec.getAttribute('data-open') === '1';
+      listEl.classList.toggle('hidden', !isOpen);
+      pill.textContent = isOpen ? '收合' : '展開';
+      chev.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(-90deg)';
+    }
+    btn.addEventListener('click', () => {
+      const now = sec.getAttribute('data-open') === '1' ? '0' : '1';
+      sec.setAttribute('data-open', now);
+      updateUI();
+      updateToggleAllBtnLabel();
+    });
+    updateUI();
+  });
+
+  updateToggleAllBtnLabel();
+}
+
+/* ====== Toggle All ====== */
+function areAllOpen(){
+  return Array.from(document.querySelectorAll('#list section'))
+    .every(sec => sec.getAttribute('data-open') === '1');
+}
+function setAll(open){
+  document.querySelectorAll('#list section').forEach(sec => {
+    sec.setAttribute('data-open', open ? '1' : '0');
+    const listEl = sec.querySelector('[data-role="list"]');
+    const pill = sec.querySelector('[data-role="pill"]');
+    const chev = sec.querySelector('[data-role="chev"]');
+    listEl.classList.toggle('hidden', !open);
+    pill.textContent = open ? '收合' : '展開';
+    chev.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
+  });
+}
+function updateToggleAllBtnLabel(){
+  const btn = document.getElementById('toggleAllBtn');
+  btn.textContent = areAllOpen() ? '收合全部' : '展開全部';
+}
+
+/* ====== Auth ====== */
 async function getIdTokenEnsured(){
-  // 1) 沒登入就以 openid/profile 登入
   if (!liff.isLoggedIn()) await liff.login({ scope:['openid','profile'] });
-  // 2) 先拿一次
   let t = liff.getIDToken();
-  // 3) 還不是 JWT → 強制重新授權
   if (!isJwt(t)) {
     await liff.login({ scope:['openid','profile'], prompt:'consent' });
     t = liff.getIDToken();
@@ -132,9 +195,10 @@ async function getIdTokenEnsured(){
   return t;
 }
 
+/* ====== Fetch ====== */
 async function fetchData(){
   const loading = document.getElementById('loading');
-  const empty   = document.getElementById('empty');
+  const empty = document.getElementById('empty');
   document.getElementById('errorBox').classList.add('hidden');
   loading.classList.remove('hidden');
   empty.classList.add('hidden');
@@ -158,36 +222,42 @@ async function fetchData(){
       throw new Error(msg);
     }
 
-    if (!data.groups?.length){
+    if (!data.groups?.length) {
       empty.classList.remove('hidden');
       document.getElementById('list').innerHTML = '';
     } else {
       renderGroups(data.groups);
     }
-  }catch(e){
+  } catch(e){
     showError(e.message || '發生錯誤');
-  }finally{
+  } finally {
     loading.classList.add('hidden');
   }
 }
 
+/* ====== Boot ====== */
 async function main(){
   await liff.init({ liffId: LIFF_ID });
-  try{
+  try {
     const p = await liff.getProfile();
     document.getElementById('welcome').innerHTML =
       `👋 哈囉，<span class="text-green-600 font-semibold">${p.displayName}</span>`;
-  }catch{}
+  } catch {}
   document.getElementById('toProfile')?.setAttribute('href', `https://liff.line.me/${LIFF_ID}?path=profile`);
   await fetchData();
 }
 
+/* ====== Events ====== */
 document.getElementById('refreshBtn').addEventListener('click', fetchData);
 document.getElementById('closeBtn').addEventListener('click', ()=>{
   if (liff.isInClient()) liff.closeWindow(); else window.close();
 });
+document.getElementById('toggleAllBtn').addEventListener('click', ()=>{
+  setAll(!areAllOpen());
+  updateToggleAllBtnLabel();
+});
+
 main();
 </script>
-
 </body>
 </html>

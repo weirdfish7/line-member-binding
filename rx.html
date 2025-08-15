@@ -16,7 +16,7 @@
     </header>
 
     <div class="flex items-center gap-2 mb-4">
-      <button id="refreshBtn" class="flex-1 rounded-xl px-4 py-3 bg-green-500 text-white font-semibold shadow hover:opacity-90">重新整理</button>
+      <button id="refreshBtn" class="flex-1 rounded-xl px-4 py-3 bg-green-600 text-white font-semibold shadow hover:opacity-90">重新整理</button>
       <button id="closeBtn" class="rounded-xl px-4 py-3 bg-gray-200 text-gray-700 font-medium">關閉視窗</button>
     </div>
 
@@ -40,39 +40,84 @@
   </div>
 
 <script>
+/* ===== 基本設定 ===== */
 const API = '/api/rx-list';
 const LIFF_ID = '2007763002-m2PaWbWe';  // 你的
 
-function fmtDate(s){ if(!s) return '-'; const d=new Date(s); if(Number.isNaN(d.getTime())) return s;
-  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
-function chip(v){ return `<span class="inline-block px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold">${v ?? '-'}</span>`; }
+/* ===== 小工具 ===== */
+// 只保留中文字（去掉符號與英數）
+function zhOnly(s) {
+  return (String(s || '').match(/[\u4E00-\u9FFF]+/g) || []).join('') || '';
+}
+function fmtDate(s){
+  if(!s) return '-';
+  const d = new Date(s);
+  if(Number.isNaN(d.getTime())) return s;
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+const safeNum = v => (v === 0 || v) ? String(v) : '-';
 
-function row(it){ return `
-  <div class="grid grid-cols-2 gap-2 text-sm py-2 border-b last:border-b-0 border-gray-100">
-    <div class="text-gray-500">處方日期</div><div class="text-gray-800">${fmtDate(it.rcp_date)}</div>
-    <div class="text-gray-500">領藥日期</div><div class="text-gray-800">${fmtDate(it.pre_date)}</div>
-    <div class="text-gray-500">可領次數</div><div class="text-gray-800">${chip(it.linkcan)}</div>
-    <div class="text-gray-500">本次</div><div class="text-gray-800">${chip(it.linkno)}</div>
-  </div>`; }
+/* 單筆明細列：第一行以「開立／領藥」並排，第二行彙整本次/可領次數 */
+function row(it){
+  return `
+    <div class="px-4 py-3 border-t border-gray-100">
+      <div class="text-[15px] text-gray-900 font-medium">
+        開立 ${fmtDate(it.rcp_date)} ・ 領藥 ${fmtDate(it.pre_date)}
+      </div>
+      <div class="mt-1 text-[13px] text-gray-600">
+        －本次領藥 第${safeNum(it.linkno)}次 / 可領次數 共${safeNum(it.linkcan)}次
+      </div>
+    </div>`;
+}
 
+/* 群組渲染：同名內排序（rcp_date 先到後 → pre_date 先到後） */
 function renderGroups(groups){
-  const list=document.getElementById('list');
-  list.innerHTML = groups.map(g=>`
-    <section class="bg-white rounded-2xl shadow overflow-hidden">
-      <button class="w-full text-left px-4 py-3 flex items-center justify-between bg-gray-50">
-        <div class="font-semibold text-gray-800">👤 ${g.name}</div>
-        <div class="text-xs text-gray-500">${g.records.length} 筆</div>
-      </button>
-      <div class="px-4 pb-3 hidden">${g.records.map(row).join('')}</div>
-    </section>`).join('');
+  const list = document.getElementById('list');
+  list.innerHTML = (groups || []).map(g=>{
+    const name = zhOnly(g.name) || '未填姓名';
+    const recs = [...(g.records || [])].sort((a,b)=>{
+      const ar = new Date(a.rcp_date || 0), br = new Date(b.rcp_date || 0);
+      if (ar - br !== 0) return ar - br;
+      const ap = new Date(a.pre_date || 0), bp = new Date(b.pre_date || 0);
+      return ap - bp;
+    });
+    return `
+      <section class="bg-white rounded-2xl shadow overflow-hidden">
+        <button class="w-full text-left px-4 py-3 flex items-center justify-between bg-gray-50">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-700">👤</div>
+            <div>
+              <div class="text-base font-semibold text-gray-900">${name}</div>
+              <div class="text-xs text-gray-500">${recs.length} 筆</div>
+            </div>
+          </div>
+          <div class="text-gray-400">⌄</div>
+        </button>
+        <div class="pb-2 hidden">
+          ${recs.map(row).join('')}
+        </div>
+      </section>`;
+  }).join('');
+
+  // 綁定展開/收合
   Array.from(list.querySelectorAll('section > button')).forEach(btn=>{
-    const panel=btn.nextElementSibling; btn.addEventListener('click', ()=>panel.classList.toggle('hidden'));
+    const panel = btn.nextElementSibling;
+    btn.addEventListener('click', ()=> panel.classList.toggle('hidden'));
   });
 }
 
-function showError(msg){ const box=document.getElementById('errorBox'); box.textContent=msg||'發生錯誤'; box.classList.remove('hidden'); }
+function showError(msg){
+  const box = document.getElementById('errorBox');
+  box.textContent = msg || '發生錯誤';
+  box.classList.remove('hidden');
+}
 
-function isJwt(s){ return /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(s||''); }
+function isJwt(s){
+  return /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(s||'');
+}
 
 async function getIdTokenEnsured(){
   // 1) 沒登入就以 openid/profile 登入
@@ -88,37 +133,59 @@ async function getIdTokenEnsured(){
 }
 
 async function fetchData(){
-  const loading=document.getElementById('loading'), empty=document.getElementById('empty');
+  const loading = document.getElementById('loading');
+  const empty   = document.getElementById('empty');
   document.getElementById('errorBox').classList.add('hidden');
-  loading.classList.remove('hidden'); empty.classList.add('hidden');
+  loading.classList.remove('hidden');
+  empty.classList.add('hidden');
 
   try{
     const idToken = await getIdTokenEnsured();
-    if (!isJwt(idToken)) { showError('取得 id_token 失敗（不是 JWT）。請確認 LIFF scopes 有 openid/profile。'); return; }
+    if (!isJwt(idToken)) {
+      showError('取得 id_token 失敗（不是 JWT）。請確認 LIFF scopes 有 openid/profile。');
+      return;
+    }
 
-    const r = await fetch(API,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id_token: idToken }) });
+    const r = await fetch(API, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ id_token: idToken })
+    });
     const data = await r.json();
 
     if (!r.ok) {
-      // 後端會回 { error, detail, hint }
       const msg = [data.error, data.detail].filter(Boolean).join(': ') || '查詢失敗';
       throw new Error(msg);
     }
 
-    if (!data.groups?.length){ empty.classList.remove('hidden'); document.getElementById('list').innerHTML=''; }
-    else { renderGroups(data.groups); }
-  }catch(e){ showError(e.message||'發生錯誤'); }
-  finally{ loading.classList.add('hidden'); }
+    if (!data.groups?.length){
+      empty.classList.remove('hidden');
+      document.getElementById('list').innerHTML = '';
+    } else {
+      renderGroups(data.groups);
+    }
+  }catch(e){
+    showError(e.message || '發生錯誤');
+  }finally{
+    loading.classList.add('hidden');
+  }
 }
 
 async function main(){
   await liff.init({ liffId: LIFF_ID });
-  try{ const p=await liff.getProfile(); document.getElementById('welcome').innerHTML=`👋 哈囉，<span class="text-green-600 font-semibold">${p.displayName}</span>`; }catch{}
+  try{
+    const p = await liff.getProfile();
+    document.getElementById('welcome').innerHTML =
+      `👋 哈囉，<span class="text-green-600 font-semibold">${p.displayName}</span>`;
+  }catch{}
   document.getElementById('toProfile')?.setAttribute('href', `https://liff.line.me/${LIFF_ID}?path=profile`);
   await fetchData();
 }
+
 document.getElementById('refreshBtn').addEventListener('click', fetchData);
-document.getElementById('closeBtn').addEventListener('click', ()=>{ if(liff.isInClient()) liff.closeWindow(); else window.close(); });
+document.getElementById('closeBtn').addEventListener('click', ()=>{
+  if (liff.isInClient()) liff.closeWindow(); else window.close();
+});
 main();
 </script>
 

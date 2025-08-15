@@ -1,29 +1,33 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>修改電話號碼｜吾家藥局</title>
-  <!-- Tailwind (CDN) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>會員電話修改｜吾家藥局</title>
+
+  <!-- Tailwind（僅樣式，與功能無關） -->
   <script src="https://cdn.tailwindcss.com"></script>
+
   <!-- LIFF SDK -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <!-- Supabase JS v2 -->
+
+  <!-- Supabase JS (UMD) -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2.45.1/dist/umd/supabase.js"></script>
+
+  <!-- 主要程式 -->
   <script type="module">
-    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+    /* ====== 0) 你的設定（請改成自己的值） ====== */
+    const SUPABASE_URL      = 'https://cbjvorfvohqulwbbcnfb.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNianZvcmZ2b2hxdWx3YmJjbmZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzNTQyNzYsImV4cCI6MjA2ODkzMDI3Nn0.lNQCZ6uJd1NQjMCiotjS69ylpyhaVSD6fsnrwLbFooM';
+    const LIFF_ID           = '2007763002-OAGeQLQ3';
+    const REGISTER_URL      = 'https://liff.line.me/2007763002-GaqlwXwO'; // 綁定會員頁
 
-    /* ====== 1) 環境變數（改成你的） ====== */
-    const LIFF_ID            = "2007763002-OAGeQLQ3";
-    const SUPABASE_URL       = "https://cbjvorfvohqulwbbcnfb.supabase.co";
-    const SUPABASE_ANON_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNianZvcmZ2b2hxdWx3YmJjbmZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzNTQyNzYsImV4cCI6MjA2ODkzMDI3Nn0.lNQCZ6uJd1NQjMCiotjS69ylpyhaVSD6fsnrwLbFooM";
-    const REGISTER_URL       = "https://liff.line.me/2007763002-GaqlwXwO"; // 你既有的綁定頁
+    /* ====== 1) Supabase Client ====== */
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    /* ====== 2) Supabase Client ====== */
-    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    /* ====== 3) 簡易 i18n ====== */
+    /* ====== 2) 簡易 i18n ====== */
     const I18N = {
-      "zh": {
+      zh: {
         brand: "吾家藥局",
         hi: "哈囉，",
         notMember: "您還不是吾家會員",
@@ -41,7 +45,7 @@
         bye: "正在關閉視窗…",
         currentPhone: "目前電話",
       },
-      "en": {
+      en: {
         brand: "Wujia Pharmacy Member",
         hi: "Hi, ",
         notMember: "You're not a member yet",
@@ -62,50 +66,48 @@
     };
     const pickLang = () => (navigator.language?.startsWith("zh") ? "zh" : "en");
 
-    /* ====== 4) 小工具 ====== */
+    /* ====== 3) 小工具 ====== */
     const $ = (sel) => document.querySelector(sel);
     const digitsOnly = (v) => (String(v || "").match(/\d+/g) || []).join("");
 
-    /* ====== 5) UI 綁定 ====== */
+    /* ====== 4) UI 快取 ====== */
     const ui = {
-      card:      () => $("#card"),
-      loading:   () => $("#loading"),
-      errorBox:  () => $("#errorBox"),
-      noti:      () => $("#noti"),
-      nameSpan:  () => $("#lineName"),
-      phoneNow:  () => $("#phoneNow"),
-      phoneInput:() => $("#phoneInput"),
-      saveBtn:   () => $("#saveBtn"),
-      bindBtn:   () => $("#bindBtn"),
-      notMember: () => $("#notMember"),
-      editor:    () => $("#editor"),
-      langBtn:   () => $("#langBtn"),
-      title:     () => $("#title"),
-      subtitle:  () => $("#subtitle"),
-      tip:       () => $("#tip"),
-      lblCurrent:() => $("#lblCurrent"),
+      card:       () => $("#card"),
+      loading:    () => $("#loading"),
+      errorBox:   () => $("#errorBox"),
+      noti:       () => $("#noti"),
+      nameSpan:   () => $("#lineName"),
+      phoneNow:   () => $("#phoneNow"),
+      phoneInput: () => $("#phoneInput"),
+      saveBtn:    () => $("#saveBtn"),
+      bindBtn:    () => $("#bindBtn"),
+      editor:     () => $("#editor"),
+      langBtn:    () => $("#langBtn"),
+      title:      () => $("#title"),
+      subtitle:   () => $("#subtitle"),
+      tip:        () => $("#tip"),
+      lblCurrent: () => $("#lblCurrent"),
     };
 
-    /* ====== 6) 狀態 ====== */
+    /* ====== 5) 狀態 ====== */
     let lang = pickLang();
-    let uid  = "";
+    let uid = "";
     let displayName = "";
     let originalPhone = "";
 
+    /* ====== 6) i18n 套用 ====== */
     function applyI18n() {
       const t = I18N[lang];
-      document.title         = t.welcome + "｜" + t.brand;
-      ui.title().textContent = t.welcome;
-      ui.subtitle().innerHTML = `👋 ${t.hi}<span id="lineName" class="text-green-600 font-semibold"></span>！`;
-      ui.tip().textContent   = t.tip;
-      ui.saveBtn().textContent = t.save;
-      ui.bindBtn().textContent = t.goBind;
+      document.title            = t.welcome + "｜" + t.brand;
+      ui.title().textContent    = t.welcome;
+      ui.subtitle().innerHTML   = `👋 ${t.hi}<span id="lineName" class="text-green-600 font-semibold"></span>！`;
+      ui.tip().textContent      = t.tip;
+      ui.saveBtn().textContent  = t.save;
+      ui.bindBtn().textContent  = t.goBind;
       ui.lblCurrent().textContent = t.currentPhone;
-      ui.langBtn().textContent = lang === "zh" ? "EN" : "中";
-      // not-member card
+      ui.langBtn().textContent  = lang === "zh" ? "EN" : "中";
       $("#nmTitle").textContent = t.notMember;
       $("#nmDesc").textContent  = t.notMemberDesc;
-      // placeholders
       ui.phoneInput().placeholder = t.inputPhone;
     }
 
@@ -127,28 +129,36 @@
       const t = I18N[lang];
       const v = digitsOnly(ui.phoneInput().value);
       ui.saveBtn().disabled = !v || v === originalPhone;
-      ui.saveBtn().title = !v ? t.emptyPhone : (v === originalPhone ? t.samePhone : "");
+      ui.saveBtn().title    = !v ? t.emptyPhone : (v === originalPhone ? t.samePhone : "");
     }
 
-    /* ====== 7) 初始化流程 ====== */
+    /* ====== 7) Rich Menu 同步（修改成功或載入後呼叫） ====== */
+    async function syncRichMenu() {
+      try {
+        await fetch('/api/sync-richmenu', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_token: liff.getIDToken() || null,
+            access_token: liff.getAccessToken() || null
+          })
+        });
+      } catch (e) {
+        console.warn('sync-richmenu failed (ignored):', e);
+      }
+    }
+
+    /* ====== 8) 初始化 ====== */
     async function main() {
       applyI18n();
+
       ui.langBtn().addEventListener("click", () => {
         lang = (lang === "zh" ? "en" : "zh");
         applyI18n();
-        // 填回名字
         ui.nameSpan().textContent = displayName || "";
       });
-
-      ui.phoneInput().addEventListener("input", () => {
-        // 僅保留數字，但不強制改變游標體驗：顯示層保留原樣，存檔時再規整
-        setSaveBtnState();
-      });
-
-      ui.bindBtn().addEventListener("click", () => {
-        location.href = REGISTER_URL;
-      });
-
+      ui.phoneInput().addEventListener("input", setSaveBtnState);
+      ui.bindBtn().addEventListener("click", () => (location.href = REGISTER_URL));
       ui.saveBtn().addEventListener("click", onSave);
 
       try {
@@ -156,7 +166,7 @@
 
         await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) {
-          liff.login();
+          liff.login({ scope: ['openid', 'profile'] });
           return;
         }
 
@@ -165,34 +175,36 @@
         displayName = profile.displayName || "";
         ui.nameSpan().textContent = displayName;
 
-        // 讀取此 uid 的會員資料
+        // 只查 users 這筆資料（不再查 px_call_list）
         const { data, error } = await sb
           .from("users")
-          .select("id, uid, display_name, phone")
+          .select("uid, display_name, phone")
           .eq("uid", uid)
           .maybeSingle();
 
-        if (error) {
-          console.error(error);
-          throw error;
-        }
+        if (error) throw error;
 
-        const t = I18N[lang];
-
-        if (!data || !data.phone) {
-          // 非會員或尚未綁定電話
+        if (!data) {
+          // 沒這筆 user → 視為未綁定
+          $("#nmCard").classList.remove("hidden");
+          ui.editor().classList.add("hidden");
+        } else if (!data.phone) {
+          // 有 user 但未綁定電話 → 視為未綁定
           $("#nmCard").classList.remove("hidden");
           ui.editor().classList.add("hidden");
         } else {
-          // 已有會員資料 → 顯示編輯
+          // 已有電話 → 顯示編輯
           $("#nmCard").classList.add("hidden");
           ui.editor().classList.remove("hidden");
-
           originalPhone = digitsOnly(data.phone);
           ui.phoneNow().textContent = originalPhone || "-";
-          ui.phoneInput().value = ""; // 不預填舊號碼
+          ui.phoneInput().value = "";
           setSaveBtnState();
         }
+
+        // 載入完成保險同步一次選單（由後端依 DB 狀態判斷 link/unlink）
+        await syncRichMenu();
+
       } catch (e) {
         console.error(e);
         ui.errorBox().classList.remove("hidden");
@@ -202,25 +214,20 @@
       }
     }
 
-    /* ====== 8) 送出更新 ====== */
+    /* ====== 9) 儲存電話 ====== */
     async function onSave() {
       const t = I18N[lang];
-      const raw = ui.phoneInput().value;
+      const raw   = ui.phoneInput().value;
       const phone = digitsOnly(raw);
 
-      if (!phone) {
-        toast(t.emptyPhone);
-        return;
-      }
-      if (phone === originalPhone) {
-        toast(t.samePhone);
-        return;
-      }
+      if (!phone)          return toast(t.emptyPhone);
+      if (phone === originalPhone) return toast(t.samePhone);
 
       ui.saveBtn().disabled = true;
       ui.saveBtn().textContent = t.saving;
 
       try {
+        // 只更新 users.phone
         const { error } = await sb
           .from("users")
           .update({ phone })
@@ -228,13 +235,20 @@
 
         if (error) throw error;
 
+        // 同步 Rich Menu（忽略錯誤）
+        await syncRichMenu();
+
         toast(t.saved);
-        // 稍待一下以便使用者看到通知，再關閉 LIFF
+
+        // 更新畫面上的顯示並關閉
+        originalPhone = phone;
+        ui.phoneNow().textContent = originalPhone;
         setTimeout(() => {
           $("#closing").classList.remove("hidden");
           $("#closingMsg").textContent = t.bye;
           liff.closeWindow();
         }, 600);
+
       } catch (e) {
         console.error(e);
         toast("Error: " + (e?.message || "update failed"));
